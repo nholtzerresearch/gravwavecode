@@ -1,0 +1,8 @@
+/home/ubuntu/Desktop/Research/CMakeFiles/debug.dir
+/home/ubuntu/Desktop/Research/CMakeFiles/distclean.dir
+/home/ubuntu/Desktop/Research/CMakeFiles/gravwave-1.dir
+/home/ubuntu/Desktop/Research/CMakeFiles/info.dir
+/home/ubuntu/Desktop/Research/CMakeFiles/release.dir
+/home/ubuntu/Desktop/Research/CMakeFiles/run.dir
+/home/ubuntu/Desktop/Research/CMakeFiles/runclean.dir
+/home/ubuntu/Desktop/Research/CMakeFiles/strip_comments.dir
