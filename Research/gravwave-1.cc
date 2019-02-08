@@ -57,6 +57,7 @@ public:
   void run()
   {
     create_triangulation();
+    define_boundary_conds(); //ADDED FOR DIRICH. BCS
     setup_system();
     assemble_system();
     solve();
@@ -64,6 +65,7 @@ public:
   }
 
   void create_triangulation();
+  void define_boundary_conds(); //ADDED FOR DIRICH. BCS
   void setup_system();
   void setup_constraints();
   void assemble_system();
@@ -81,6 +83,15 @@ public:
  dealii::DoFHandler<dim>           dof_handler_;
  dealii::SparsityPattern           sparsity_pattern_;
  dealii::ConstraintMatrix          affine_constraints_;
+
+ std::vector<double>               nodeLocation;//ADDED FOR DIRICH BCS
+ std::map<unsigned int,double>     boundary_values;//ADDED FOR DIRICH BCS
+ 
+ double R, g1, g2;
+// double time_step_, time_;
+// unsigned int timestep_number_;
+// const double theta_;
+
 //};
   // PARAMETER
   std::function<value_type(const Point<dim> &point)>f_func=   
@@ -155,6 +166,10 @@ GravWave<dim>::GravWave()
    finite_element_(FE_Q<dim>(1), 2),
    mapping_(1),    // PARAMETER
    quadrature_(3) // PARAMETER
+  // time_step_(1./64), //PARAMETER
+  // time_(time_step_),
+  // timestep_number_(1),
+  // theta_(0.5)
 {} 
 
 
@@ -174,6 +189,25 @@ GravWave<dim>::create_triangulation()
 
 }
 
+
+// @sect{GravWave::define_boundary_conds} ADDED SECTION FOR DIRICH BCS
+
+template <int dim>
+void GravWave<dim>::define_boundary_conds(){
+
+const unsigned int totalNodes = dof_handler_.n_dofs(); //Total number of nodes
+
+ for(unsigned int globalNode=0; globalNode<totalNodes; globalNode++){
+    if(nodeLocation[globalNode] == 0){
+      boundary_values[globalNode] = g1;
+    }
+    if(nodeLocation[globalNode] == R){ 
+      boundary_values[globalNode] = g2;
+      }
+    }
+}
+
+
 // @sect{GravWave::setup_system}
 
 template <int dim>
@@ -181,14 +215,20 @@ void
 
 GravWave<dim>::setup_system()
 {
+  //Define constants for problem (Dirichlet boundary values) ADDED FOR DIRICH BC
+  g1 =0.001 ; g2 =1 ;
+ std::cout << "g1= "<< g1;
+ std::cout << "g2= "<< g2;
  std::cout << "GravWave<dim>::setup_system()" << std::endl;
 
  dof_handler_.initialize(triangulation_, finite_element_);
  std::cout << "        " << dof_handler_.n_dofs() << " DoFs" << std::endl;
 
  DoFRenumbering::Cuthill_McKee(dof_handler_);
-
-  setup_constraints();
+ 
+ define_boundary_conds(); //ADDED FOR DIRICH BCs (call the function) 
+ 
+ setup_constraints();
  
  DynamicSparsityPattern c_sparsity(dof_handler_.n_dofs(),
 
@@ -304,6 +344,7 @@ GravWave<dim>::assemble_system()
                                                      system_matrix_,
                                                      system_right_hand_side_);
     } // loop over dof_handler iterators 
+   // MatrixTools::apply_boundary_values (boundary_values, cell_matrix, false);ADDED FOR BCS
   }
 
 
@@ -359,8 +400,7 @@ int main()
 
 {
   static constexpr int dim = 2;
-
-  GravWave<dim> gravwave_problem;
+ // GravWave<dim> gravwave_problem;
 
  // gravwave_problem.run();
 
