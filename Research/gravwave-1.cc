@@ -79,7 +79,6 @@ public:
  dealii::DoFHandler<dim>           dof_handler_;
  dealii::SparsityPattern           sparsity_pattern_;
  dealii::ConstraintMatrix          affine_constraints_;
- SparseMatrix<double>              LHS_matrix_;
  SparseMatrix<double>		   system_matrix_;
  SparseMatrix<double>              system_RHS_;
  std::vector<double>               nodeLocation;//ADDED FOR DIRICH BCS
@@ -321,7 +320,6 @@ GravWave<dim>::setup_system()
                                  affine_constraints_,
                                  false);
  sparsity_pattern_.copy_from(c_sparsity);
- LHS_matrix_.reinit(sparsity_pattern_);
  system_matrix_.reinit(sparsity_pattern_);
  system_RHS_.reinit(sparsity_pattern_);
 
