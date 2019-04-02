@@ -362,7 +362,7 @@ GravWave<dim>::assemble_system()
   this->system_right_hand_side_ = 0.;
   this->solution_               = 0.;
   Vector<double> tmp_vector_ (solution_.size());
- 
+  std::cout << " tmp_vector_ size: " << tmp_vector_.size() << std::endl; 
   const unsigned int dofs_per_cell = finite_element_.dofs_per_cell;
 
   FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
@@ -387,6 +387,7 @@ GravWave<dim>::assemble_system()
   FEValuesViews::Scalar<dim> imag_part(fe_values, 1);
 
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+      std::cout << "initial tmp size:" << tmp_vec.size() << std::endl;
 
   const unsigned int n_q_points = quadrature_.size();
   std::cout<<"  " << NewGrad_i[0] << std::endl ;
@@ -454,8 +455,12 @@ GravWave<dim>::assemble_system()
             }     // for i 
 
         }         // for q_point
-
-       cell_rhs_matrix.vmult(cell_rhs, old_solution_);
+       for (unsigned int i = 0; i == cell_rhs.size()+1; ++i)
+         {
+         
+           tmp_vec(i)=old_solution_(i);
+         }
+       cell_rhs_matrix.vmult(cell_rhs, tmp_vec);
 
 
 
@@ -467,13 +472,13 @@ GravWave<dim>::assemble_system()
 
 
     } // loop over dof_handler iterators 
-     /* MatrixTools::apply_boundary_values (boundary_values,
+      MatrixTools::apply_boundary_values (boundary_values,
                                     system_matrix_,//ADDED FOR BCS
                                     solution_,
-                                    system_right_hand_side_);*/
+                                    system_right_hand_side_);
 
-
-
+    std::cout <<"cell_rhs size : "<< cell_rhs.size() << std::endl;
+    std::cout<< "old size " << old_solution_.size() <<std::endl;
 }
 
 
@@ -527,8 +532,8 @@ GravWave<dim>::run()
     setup_system();
     VectorTools::project (dof_handler_, affine_constraints_,quadrature_,InitialValues<dim>(), old_solution_); 
     assemble_system(); 
-    //solve();
-    //output();
+    solve();
+    output_result();
  /*   for (time+=time_step; time<=final_time; time+=time_step, ++timestep_number)
       {
          old_solution_ = solution_;
