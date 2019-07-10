@@ -62,11 +62,10 @@ public:
   void run();
 
   void create_triangulation();
-  void define_boundary_conds(); //ADDED FOR DIRICH. BCS
   void setup_system();
   void setup_constraints();
   void assemble_system();
-  void output_result();
+  void output_result(const unsigned int timestep_number);
   void solve();
 
  dealii::FESystem<dim>      finite_element_;
@@ -74,27 +73,24 @@ public:
  dealii::QGauss<dim>        quadrature_;
   
 
- dealii::Triangulation<dim>        triangulation_;
+ dealii::Triangulation<dim> triangulation_;
 
- dealii::DoFHandler<dim>           dof_handler_;
- dealii::SparsityPattern           sparsity_pattern_;
- dealii::ConstraintMatrix          affine_constraints_;
- SparseMatrix<double>		   system_matrix_;
- SparseMatrix<double>              system_RHS_;
- std::vector<double>               nodeLocation;//ADDED FOR DIRICH BCS
- std::map<unsigned int,double>     boundary_values;//ADDED FOR DIRICH BCS
+ dealii::DoFHandler<dim>    dof_handler_;
+ dealii::SparsityPattern    sparsity_pattern_;
+ dealii::ConstraintMatrix   affine_constraints_;
+ SparseMatrix<double>       system_matrix_;
+ SparseMatrix<double>       system_RHS_;
  
 
- dealii::Vector<double>            old_solution_;
- dealii::Vector<double>		   solution_update_,solution_;
- dealii::Vector<double>            system_right_hand_side_; 
+ dealii::Vector<double>      old_solution_;
+ dealii::Vector<double>      solution_update_,solution_;
+ dealii::Vector<double>      system_right_hand_side_; 
  
 
 
 
- double bc_left, bc_right, time_;
- const double time_step_; //final_time_;
-// unsigned int timestep_number_;
+ double bc_left, bc_right, time_step_, final_time_;
+ double time_;
  const double theta_, R0_, Rf_;
 //lambda_;
 
@@ -102,24 +98,24 @@ public:
   // PARAMETER
   std::function<value_type(const Point<dim> &point)>f_func=   
    [](const Point<dim> & point) {
-    double M = 1.0; //need to change before running
-    double Q = 1.0;
+    double M = 0.1; //need to change before running
+    double Q = -0.18115;
     return  1.0-(2*M/point[0])+(Q*Q)/(point[0]*point[0]) + 0.0 * imag;
     };
 
   std::function<value_type(const Point<dim> &point)>fprime_func=
    [](const Point<dim> & point) {
-    double M = 1.0; //need to change before running
-    double Q = 1.0;
+    double M = 0.1; //need to change before running
+    double Q = -0.18115;
     return (2/(point[0]*point[0]))*(M-((Q*Q)/point[0])) + 0.0 * imag ;
     };
     
  std::function<value_type(const Point<dim> &point)>g_func=
    [&](const Point<dim> & point) {
    //
-   double M = 1.0;
-   double Q = 1.0;
-   double q = 1.0;
+   double M = 0.1;
+   double Q = -0.18115;
+   double q = 15;
    return (2.0 *(1.0-(2*M/point[0])+(Q*Q)/(point[0]*point[0])))/point[0]+ 2.0 * imag*(q*Q)/point[0]+ (2/(point[0]*point[0]))*(M-((Q*Q)/point[0])); 
   // return (2.0*f_func(point))/point[0] + 2.0 * imag*(q*Q)/point[0] 
          //  +fprime_func(point);
@@ -128,9 +124,9 @@ public:
  std::function<value_type(const Point<dim> &point)>a_coefficient=
    [&](const Point<dim> & point) {
    //
-     double M = 1.0;
-     double Q = 1.0;
-     double q = 1.0;
+     double M = 0.1;
+     double Q = -0.18115;
+     double q = 15;
    return (2.0/point[0])*((1.0-(2*M/point[0])+(Q*Q)/(point[0]*point[0])  + 1.0 + imag*(q*Q)));
    //return (2.0/point[0])*(f_func(point) +1.0 + imag*(q*Q));
    };
@@ -138,8 +134,8 @@ public:
   std::function<value_type(const Point<dim> &point)>b_coefficient=
     [&](const Point<dim> & point) {
     //
-    double M = 1.0;
-    double Q = 1.0;
+    double M = 0.1;
+    double Q = -0.18115;
     return 2.0 + (1.0-(2*M/point[0])+(Q*Q)/(point[0]*point[0]) ) + 0.0 * imag;
     //return 2.0+ f_funct(point);
     };
@@ -153,8 +149,8 @@ public:
   std::function<value_type(const Point<dim> &point)>d_coefficient=
     [&](const Point<dim> & point) {
     //
-    double Q=1.0;
-    double q=1.0;
+    double Q=-0.18115;
+    double q=15;
     return 0.0 + ( imag*(q*Q))/(point[0]*point[0]);
     };
  };
@@ -179,12 +175,15 @@ public:
                                          Vector<double>   &values) const
 
     {  
-       double t = 0.0;
-       double a = 1.0;
-       double mu = 1.0;
-       double sigma = 1.0;
-       values(0) = a*std::exp(-((p[0]-mu)-t)*((p[0]-mu)-t)/(2.*sigma*sigma)) ;
-       values(1) = 0;
+       const double PI  =3.141592653589793238463;
+       double t = 0.0;;
+       double mu = 0.0;
+       double sigma = 0.333;
+       double a = sigma*std::sqrt(2*PI);
+      // values(0) = a*std::exp(-(((p[0]-mu)-t)*((p[0]-mu)-t))/(2.*sigma*sigma)) ;
+      // values(1) = 0;
+      values(0) = 0.5;
+      values(1) = 0;
     }
 
     template<int dim>
@@ -196,7 +195,38 @@ public:
       InitialValues<dim>::vector_value (points[p], value_list[p]);
   }
 
+  template<int dim>
+  class InitialValuesT : public Function<dim>
+  {
+  public:
+    InitialValuesT (): Function<dim>(2){}
 
+    virtual void vector_value (const Point<dim> &p,
+                               Vector<double>   &values) const;
+
+    virtual void vector_value_list (const std::vector<Point<dim> > &points,
+                                    std::vector<Vector<double> >   &value_list) const;
+  };
+
+  template<int dim>
+  inline
+  void InitialValuesT<dim>::vector_value (const Point<dim> &p,
+                                         Vector<double>   &values) const
+
+    {
+       values(0) = 0.5;
+       values(1) = 0;
+    }
+
+    template<int dim>
+    void InitialValuesT<dim>::vector_value_list (const std::vector<Point<dim> > &points,
+                                                std::vector<Vector<double> >   &value_list) const
+  {
+
+    for (unsigned int p=0; p<points.size(); ++p)
+      InitialValuesT<dim>::vector_value (points[p], value_list[p]);
+  }
+                                                                                            
 template <int dim>
 class RightHandSide : public Function<dim>
 {
@@ -207,15 +237,15 @@ public:
                        const unsigned int component=0) const;
 };
 
-/*template <int dim>
+template <int dim>
 class BoundaryValues : public Function <dim>
 {
 public:
- BoundaryValues () : Function<dim>() {}
+ BoundaryValues () : Function<dim>(2) {}
 
  virtual double value (const Point<dim> &p,
                        const unsigned int component=0) const;
-};*/
+};
 
 template <int dim>
 double RightHandSide<dim>::value (const Point<dim> &p,
@@ -225,19 +255,34 @@ double RightHandSide<dim>::value (const Point<dim> &p,
 
   return return_value;
 }
-
-
-/*template<int dim>
+template<int dim>
 double BoundaryValues<dim>::value (const Point<dim> &p,
-                                   const unsigned int) const
+                                   const unsigned int component) const
 {
-  if (p[0]=R_0){
-    return bc_left; //PARAMETER TO CHANGE POSSIBLY
+  // MM FIXME: These values should be set in the constructor:
+  double R0_      = 0.001;
+  double Rf_      = 3.;
+  double bc_left  = 0.001;
+  double bc_right = 0.001;;
+
+  if (p[0] <= R0_ + 1.e-6){
+    if (component == 0)
+      return bc_left; //PARAMETER TO CHANGE POSSIBLY
+    else
+      return 0.;
   }
-  if(p[0]= R_f){
-    return bc_right;//PARAMETER
+
+ if (p[0] >= Rf_ - 1.e-6){
+    if (component == 0)
+      return bc_right; //PARAMETER TO CHANGE POSSIBLY
+    else
+      return 0.;
   }
-}*/
+
+  return 0;
+}
+
+
 //@sect{GravWave::GravWave}
 
 template <int dim>
@@ -248,12 +293,12 @@ GravWave<dim>::GravWave()
    mapping_(1),    // PARAMETER
    quadrature_(3), // PARAMETER
    time_step_(1./64), //PARAMETER
-   //time_(time_step_),
-   //timestep_number_(1),
-  // final_time_(3.14),
+   final_time_(5.0),
+   time_(0.0),
    theta_(0.5),
-   R0_(0.0),
-   Rf_(1.0)
+   //try changing euler scheme
+   R0_(0.001),
+   Rf_(3.0)
    //lambda_(1.0)
 {} 
 
@@ -269,27 +314,13 @@ GravWave<dim>::create_triangulation()
   std::cout << "GravWave<dim>::create_triangulation()" << std::endl;
 
   GridGenerator::hyper_cube(triangulation_,R0_,Rf_);
+ 
+  // Set boundary indicators:
+  triangulation_.begin_active()->face(0)->set_boundary_id(1);
+  triangulation_.begin_active()->face(1)->set_boundary_id(1);
 
-  triangulation_.refine_global(7); // PARAMETER
+  triangulation_.refine_global(4); // PARAMETER
 
-}
-
-
-// @sect{GravWave::define_boundary_conds} ADDED SECTION FOR DIRICH BCS
-
-template <int dim>
-void GravWave<dim>::define_boundary_conds(){
-std::cout << "GravWave<dim>::define_boundary_conds()" << std::endl;
-const unsigned int totalNodes = dof_handler_.n_dofs(); //Total number of nodes
-
- for(unsigned int globalNode=0; globalNode<totalNodes; globalNode++){
-    if(nodeLocation[globalNode] == 0){
-      boundary_values[globalNode] = bc_left;
-    }
-    if(nodeLocation[globalNode] == Rf_){ 
-      boundary_values[globalNode] = bc_right;
-      }
-    }
 }
 
 
@@ -300,8 +331,6 @@ void
 
 GravWave<dim>::setup_system()
 {
-  //Define constants for problem (Dirichlet boundary values) ADDED FOR DIRICH BC
- bc_left =0.001 ; bc_right =1 ;
  std::cout << "GravWave<dim>::setup_system()" << std::endl;
 
  dof_handler_.initialize(triangulation_, finite_element_);
@@ -335,13 +364,12 @@ void
 GravWave<dim>::setup_constraints()
 {
   deallog << "GravWave<dim>::setup_constraints()" << std::endl;
-  //std::cout << "GravWave<dim>::setup_constraints()" << std::endl;
   affine_constraints_.clear();
 
-/* VectorTools::interpolate_boundary_values(dof_handler_,
-                                           0,
-                                           ZeroFunction<dim>(2),
-                                           affine_constraints_);*/
+ VectorTools::interpolate_boundary_values(dof_handler_,
+                                          1,
+                                          BoundaryValues<dim>(),
+                                          affine_constraints_);
 
   DoFTools::make_hanging_node_constraints(dof_handler_, affine_constraints_);
 
@@ -361,8 +389,7 @@ GravWave<dim>::assemble_system()
   this->system_RHS_             = 0.;
   this->system_right_hand_side_ = 0.;
   this->solution_               = 0.;
-  Vector<double> tmp_vector_ (solution_.size());
-  std::cout << " tmp_vector_ size: " << tmp_vector_.size() << std::endl; 
+
   const unsigned int dofs_per_cell = finite_element_.dofs_per_cell;
 
   FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
@@ -387,7 +414,6 @@ GravWave<dim>::assemble_system()
   FEValuesViews::Scalar<dim> imag_part(fe_values, 1);
 
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
-      std::cout << "initial tmp size:" << tmp_vec.size() << std::endl;
 
   const unsigned int n_q_points = quadrature_.size();
   std::cout<<"  " << NewGrad_i[0] << std::endl ;
@@ -407,7 +433,7 @@ GravWave<dim>::assemble_system()
       tmp_vec      = 0.; 
       fe_values.reinit(cell);
       cell->get_dof_indices(local_dof_indices);
-
+      //try initializing rhs to const and cell_matrix= I. comment out below and run. should return "b" at every time step
       const auto &quadrature_points = fe_values.get_quadrature_points();
 
       const auto rot_x = 1.;
@@ -458,7 +484,7 @@ GravWave<dim>::assemble_system()
        for (unsigned int i = 0; i == cell_rhs.size()+1; ++i)
          {
          
-           tmp_vec(i)=old_solution_(i);
+           tmp_vec(i)=old_solution_(local_dof_indices[i]);
          }
        cell_rhs_matrix.vmult(cell_rhs, tmp_vec);
 
@@ -470,15 +496,7 @@ GravWave<dim>::assemble_system()
                                                        system_matrix_,
                                                        system_right_hand_side_);
 
-
-    } // loop over dof_handler iterators 
-      MatrixTools::apply_boundary_values (boundary_values,
-                                    system_matrix_,//ADDED FOR BCS
-                                    solution_,
-                                    system_right_hand_side_);
-
-    std::cout <<"cell_rhs size : "<< cell_rhs.size() << std::endl;
-    std::cout<< "old size " << old_solution_.size() <<std::endl;
+    } 
 }
 
 
@@ -504,20 +522,28 @@ GravWave<dim>::solve()
 template <int dim>
 void
 
-GravWave<dim>::output_result()
+GravWave<dim>::output_result(const unsigned int timestep_number)
 {
-  std::cout << "GravWave<dim>::output_result()" << std::endl;
+  std::cout << "GravWave<dim>::output_result(" << timestep_number << ")"
+            << std::endl;
  
   dealii::DataOut<dim> data_out;
   data_out.attach_dof_handler(dof_handler_);
-
   data_out.add_data_vector(system_right_hand_side_, "rhs");
   data_out.add_data_vector(solution_, "solution");
 
   data_out.build_patches();
+  
+  std::string name = std::string("solution-") + std::to_string(timestep_number);
+  
+ // name += std::string(".gpl");
+  name += std::string(".vtk");
 
-  std::ofstream output("solution.vtk");
+  std::ofstream output(name);
+
+  //data_out.write_gnuplot(output);
   data_out.write_vtk(output);
+
 }
 
 // @sect{GravWave:: run}
@@ -528,25 +554,45 @@ GravWave<dim>::run()
 {
 
     create_triangulation();
-    define_boundary_conds(); //ADDED FOR DIRICH. BCS
     setup_system();
-    VectorTools::project (dof_handler_, affine_constraints_,quadrature_,InitialValues<dim>(), old_solution_); 
-    assemble_system(); 
-    solve();
-    output_result();
- /*   for (time+=time_step; time<=final_time; time+=time_step, ++timestep_number)
+
+    VectorTools::interpolate(dof_handler_, 
+                             //affine_constraints_,
+                            // quadrature_,
+                             InitialValues<dim>(), 
+                             solution_); 
+
+    VectorTools::interpolate(dof_handler_,
+                             //affine_constraints_,
+                            // quadrature_,
+                             InitialValuesT<dim>(),
+                             solution_);//CHECK THIS
+
+    //assemble_system(); 
+   // solve();
+    output_result(0);
+ 
+    unsigned int timestep_number = 1;
+    time_+=time_step_;
+
+    while (time_ <= final_time_)
       {
          old_solution_ = solution_;
 
 	 std::cout << std::endl
-	 << "Time step #" << timestep_number << "; " 
-	 << "advancing to t = " << time << "." 
-	 << std::endl; 
+	           << "Time step #" << timestep_number << "; " 
+	           << "advancing to t = " << time_ << "." << std::endl;
+ 
          assemble_system();
+
          solve();
-         output();
-       }*/
-} 
+
+         output_result(timestep_number);
+      
+         time_ += time_step_;
+         timestep_number++;
+       }
+ } 
 //@sect{The <code>main</code> function}
 int main()
 
