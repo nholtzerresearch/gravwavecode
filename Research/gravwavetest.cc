@@ -94,68 +94,7 @@ public:
  double bc_left, bc_right, time_step_, final_time_;
  double time_;
  const double theta_, R0_, Rf_;
-//lambda_;
-
-//};
-  // PARAMETER
-  std::function<value_type(const Point<dim> &point)>f_func=   
-   [](const Point<dim> & point) {
-    double M = 0.2; //M^2>Q^2
-    double Q = 0.08;
-    return  1.0-(2*M/point[0])+(Q*Q)/(point[0]*point[0]) + 0.0 * imag;
-    };
-
-  std::function<value_type(const Point<dim> &point)>fprime_func=
-   [](const Point<dim> & point) {
-    double M = 0.2; //need to change before running
-    double Q = 0.08;
-    return (2/(point[0]*point[0]))*(M-((Q*Q)/point[0])) + 0.0 * imag ;
-    };
-    
- std::function<value_type(const Point<dim> &point)>g_func=
-   [&](const Point<dim> & point) {
-   //
-   double M = 0.2;
-   double Q = 0.08;
-   double q = 1;
-   return (2.0 *(1.0-(2*M/point[0])+(Q*Q)/(point[0]*point[0])))/point[0]+ 2.0 * imag*(q*Q)/point[0]+ (2/(point[0]*point[0]))*(M-((Q*Q)/point[0])); 
-  // return (2.0*f_func(point))/point[0] + 2.0 * imag*(q*Q)/point[0] 
-         //  +fprime_func(point);
-   };
-
- std::function<value_type(const Point<dim> &point)>a_coefficient=
-   [&](const Point<dim> & point) {
-   //
-     double M = 0.2;
-     double Q = 0.08;
-     double q = 1;
-   return (2.0/point[0])*((1.0-(2*M/point[0])+(Q*Q)/(point[0]*point[0])  + 1.0 + imag*(q*Q)));
-   //return (2.0/point[0])*(f_func(point) +1.0 + imag*(q*Q));
-   };
-
-  std::function<value_type(const Point<dim> &point)>b_coefficient=
-    [&](const Point<dim> & point) {
-    //
-    double M = 0.2;
-    double Q = 0.08;
-    return 2.0 + (1.0-(2*M/point[0])+(Q*Q)/(point[0]*point[0]) ) + 0.0 * imag;
-    //return 2.0+ f_funct(point);
-    };
-
- std::function<value_type(const Point<dim> &point)>c_coefficient=
-   [&](const Point<dim> & point) {
-   //
-   return (2.0/point[0]) + 0.0 * imag;
-   };
-
-  std::function<value_type(const Point<dim> &point)>d_coefficient=
-    [&](const Point<dim> & point) {
-    //
-    double Q=-0.18115;
-    double q=1;
-    return 0.0 + ( imag*(q*Q))/(point[0]*point[0]);
-    };
- };
+};
 //@sect{IC,RHS,BCs}
 //Here we declare three more classes for the implementation of the IC, RHS, and non-homogeneous Dirichlet BCs.
   template<int dim>
@@ -177,23 +116,8 @@ public:
                                          Vector<double>   &values) const
 
     {  
-      //NOTE: WANT Ae^i(kx-wt)=A(cos(kx-wt)+isin(kx-wt) IN REGION AND ZERO OUTSIDE; LOOK AT STEP 23 BOUNDARY DATA
-      	 const double PI  =3.141592653589793238463;
-      // double t = 0.0;;
-      	 double mu = 2.0 ;
-      // double sigma = 0.333;
-      	 double a = -1.0;
-      // values(0) = a*std::exp(-(((p[0]-mu)-t)*((p[0]-mu)-t))/(2.*sigma*sigma)) ;
-	if ((p[0]>=.001) && (p[0]<PI)){ 
-        	values(0)= a*std::cos(mu*p[0])+1; //a*std::cos(k*p[0]-w*t)
-        	values(1)= 0.0; //a*std::sin(k*p[0]-w*t);
-	}
-	else
-	{	values(0) = 0.0;
-		values(1) = 0.0;
-	}
-      //values(0) = 0.5;
-      //values(1) = 0;
+      	values(0) = 0.5;
+      	values(1) = 0;
     }
 
     template<int dim>
@@ -238,7 +162,7 @@ double BoundaryValues<dim>::value (const Point<dim> &p,
 {
   // MM FIXME: These values should be set in the constructor:
   double R0_      = 0.001;
-  double Rf_      = 0.0186;//r values need to stay <1 for coercivity
+  double Rf_      = 0.0186;
   double bc_left  = 0.001;
   double bc_right = 0.001;;
 
@@ -270,12 +194,12 @@ GravWave<dim>::GravWave()
    mapping_(1),    // PARAMETER
    quadrature_(4), // PARAMETER
    time_step_(1./64), //PARAMETER
-   final_time_(1.0),
+   final_time_(1./32),
    time_(0.0),
    theta_(1.0),
+   //try changing euler scheme
    R0_(0.001),
    Rf_(0.0186)
-   //lambda_(1.0)
 {} 
 
 
@@ -295,7 +219,7 @@ GravWave<dim>::create_triangulation()
   triangulation_.begin_active()->face(0)->set_boundary_id(1);
   triangulation_.begin_active()->face(1)->set_boundary_id(1);
 
-  triangulation_.refine_global(2); // PARAMETER
+  triangulation_.refine_global(4); // PARAMETER
 
 }
 
@@ -367,23 +291,20 @@ GravWave<dim>::assemble_system()
   this->solution_               = 0.;
 
   const unsigned int dofs_per_cell = finite_element_.dofs_per_cell;
-
-  FullMatrix<double> cell_matrix((IdentityMatrix(dofs_per_cell)));
+  std::cout << "dofs_per_cell" << dofs_per_cell <<std::endl;
+  FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_rhs_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> M_matrix_one(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> M_matrix_two(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> K_matrix_one(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> K_matrix_two(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> A_matrix(dofs_per_cell, dofs_per_cell);
   Tensor<1,dim,value_type>  NewGrad_i, NewGrad1_i;
   NewGrad_i[0] = 2.;
-  NewGrad1_i[0] = 2. + time_step_ * theta_; 
+  NewGrad1_i[0] = 2. + time_step_ * theta_;
   Vector<double> cell_rhs(dofs_per_cell);
- // Vector<double>::add(cell_rhs, 2.);
- // cell_rhs.add(1.);
-  //std::cout  << "rhs vector" << cell_rhs << std::endl;
-
   Vector<double>     tmp_vec(dofs_per_cell);
+  Vector<double> temp_i(dofs_per_cell);
+  Vector<double> temp_j(dofs_per_cell);
+  //temp_i[0]=1.;
+  //temp_j[0]=1.;
   FEValues<dim> fe_values(mapping_,
                           finite_element_,
                           quadrature_,
@@ -397,110 +318,118 @@ GravWave<dim>::assemble_system()
 
   const unsigned int n_q_points = quadrature_.size();
 
-  for (auto cell : dof_handler_.active_cell_iterators())
+    for (auto cell : dof_handler_.active_cell_iterators())
     {
-      cell_matrix = 0.;
-      cell_rhs_matrix = 0;
+      cell_matrix  = 0.;
+      cell_rhs     = 0.;
       M_matrix_one = 0.;
-      M_matrix_two = 0.;
-      K_matrix_one = 0.; 
       K_matrix_two = 0.;
-      A_matrix     = 0.;
       cell_rhs     = 0.;
       tmp_vec      = 0.; 
+      temp_i       = 0.;
+      temp_j       = 0.;
+      temp_i[0]=1.;
+      temp_j[0]=1.;
+      /*for (int v=0; v<8; v++) {
+               std::cout << "temp_i[" << v <<"]: ";
+               std::cout <<temp_i[v]<<std::endl;
+            }*/
+
+
       fe_values.reinit(cell);
       cell->get_dof_indices(local_dof_indices);
-      //try initializing rhs to const and cell_matrix= I. comment out below and run. should return "b" at every time step
       const auto &quadrature_points = fe_values.get_quadrature_points();
 
       const auto rot_x = 1.;
       const auto rot_y = -imag;
 
-      for (unsigned int q_point = 0; q_point < n_q_points; ++q_point)
+       for (unsigned int q_point = 0; q_point < n_q_points; ++q_point)
         {
           const auto position = quadrature_points[q_point];
-          const auto a_coef = a_coefficient(position);
-          const auto b_coef = b_coefficient(position);
-          const auto c_coef = c_coefficient(position);
-          const auto d_coef = d_coefficient(position);
           const auto JxW = fe_values.JxW(q_point);
-
           // index i for test space, index j for ansatz space
           for (unsigned int i = 0; i < dofs_per_cell; ++i)
             { 
-              
+             // cell_rhs(i) += 1.0; 
               const auto value_i = rot_x * real_part.value(i, q_point) +
                                    rot_y * imag_part.value(i, q_point);
-
               const auto grad_i = rot_x * real_part.gradient(i, q_point) +
                                   rot_y * imag_part.gradient(i, q_point);
-
               const auto newgrad1_i = (NewGrad_i)*grad_i;
-         
+
               const auto newgrad2_i = (NewGrad1_i)*grad_i;
+             
 
 		for (unsigned int j = 0; j < dofs_per_cell; ++j)
                 { 
                   const auto value_j = rot_x * real_part.value(j, q_point) +
-                                   rot_y * imag_part.value(j, q_point);
+                                       rot_y * imag_part.value(j, q_point);
 
                   const auto grad_j = real_part.gradient(j, q_point) +
                                       imag * imag_part.gradient(j, q_point);
-                  M_matrix_one(i,j) += (value_j * (c_coef+time_step_*theta_*d_coef) * value_i).real();
-                  M_matrix_two(i,j) += (value_j * (c_coef- time_step_* (1.-theta_)*d_coef) * value_i).real();
-                  K_matrix_one(i,j) += (value_j* newgrad1_i).real();
-                  K_matrix_two(i,j) += (value_j *  a_coef * newgrad2_i).real();
-                  A_matrix(i,j)  += (grad_j * (time_step_ * theta_ * b_coef) * grad_i).real();
-                  cell_matrix(i, j) += ((M_matrix_one(i,j) + K_matrix_one(i,j))*JxW);
-                  cell_rhs_matrix(i,j) += ((M_matrix_two(i,j) + K_matrix_two(i,j) - A_matrix(i,j))*JxW);
+		  if (j == i){
+		    M_matrix_one[i][j] = 1.;
+		    K_matrix_two[i][j] = 1.;
+		    }
+                  //K_matrix_two(i,j) += (value_j * newgrad2_i).real();
+                  cell_matrix(i, j) += M_matrix_one(i,j);
+                  cell_rhs_matrix(i,j) += (K_matrix_two(i,j));
+
+		  //if (j==i){
+                   // cell_matrix(i, j) += 1.real();;
+		 // }
+		  //std::cout<<"size of value_j "<<sizeof(value_j.real())<<std::endl;
+
                 } // for j
-
+	    //std::cout<<"size of value_j "<<sizeof(value_j)<<std::endl;
             }     // for i 
-
         }         // for q_point
        for (unsigned int i = 0; i == cell_rhs.size()+1; ++i)
          {
          
            tmp_vec(i)=old_solution_(local_dof_indices[i]);
          }
+
+
        cell_rhs_matrix.vmult(cell_rhs, tmp_vec);
-
-
-
-       affine_constraints_.distribute_local_to_global(cell_matrix,
-                                                       cell_rhs,
-                                                       local_dof_indices,
-                                                       system_matrix_,
-                                                       system_right_hand_side_);
-	/*affine_constraints_.distribute_local_to_global(cell_matrix,
-                                                       cell_rhs,
-                                                       local_dof_indices,
-                                                       system_matrix_,
-                                                       system_right_hand_side_);
-
-      double Row,Col,i,j;
-      i=sizeof(system_matrix_);
-     // j=cell_matrix.size();
-      //std::cout<<"size of sparse system matrix " << sizeof(system_matrix_). <<  std::endl; 
-      std::cout<<"size of cell matrix " << cell_matrix.size() << std::endl;
-
-      Row= sizeof(cell_matrix)/sizeof(cell_matrix[0]);
-      Col= sizeof(cell_matrix[0])/sizeof(cell_matrix[0][0]);
-      std::cout<<"size of cell matrix rows " << Row << " size of cell matrix col "<< Col<< std::endl;*/
-      /*  std::ofstream output("IdentityMat.txt");
-      for (i=0; i<sizeof(; i++)
-      {
-	for(j=0; j<Col; j++)
-	{
-		output << system_matrix_[i][j] << " ";
+       for (int v=0; v<8; v++) {
+	    cell_rhs[v]=.5;
 	}
-  	output << "\n";
-      }*/
-   } 
+/*	for (int w=0; w<8; w++) {
+      std::cout<<"cell rhs[ "<< w << "]"<< cell_rhs[w] <<std::endl;
+        }*/
+       affine_constraints_.distribute_local_to_global( cell_matrix,
+                                                       cell_rhs,
+                                                       local_dof_indices,
+                                                       system_matrix_,
+                                                       system_right_hand_side_);
 
 }
+	 std::cout<<"rows: "<<system_matrix_.m()<< std::endl;
+	 std::cout<<"cols: "<<system_matrix_.n()<< std::endl;
+         std::cout<<"rhs length: "<<system_right_hand_side_.size()<<std::endl;
+	 for (int i=0; i< system_matrix_.m(); i++){
+	 	system_matrix_.set(i,i,1.0);
+	 }	
+	 for (int j=0; j< system_right_hand_side_.size(); j++){
+                system_right_hand_side_[j]=0.5;
+         }
 
 
+	 std::cout << "K_matrix_two size: " <<K_matrix_two.size() << std::endl;
+	 std::string name1 = std::string("outfile");
+	 std::ofstream outfile(name1);
+
+	 system_matrix_.print(outfile, false, true);
+	 
+	 std::string name2 = std::string("outfilerhs");
+         std::ofstream outfilerhs(name2);
+
+         system_right_hand_side_.print(outfilerhs, false, true);
+
+	
+         //std::cout << "system_matrix_: " << system_matrix_.print(StreamType &out,									    const bool across = false,  const bool diagonal_first=true) const <<std::endl;
+}
 
 // @sect{GravWave:: solve}
 
@@ -512,11 +441,7 @@ GravWave<dim>::solve()
   std::cout << "GravWave<dim>::solve()" << std::endl;
 
   affine_constraints_.set_zero(solution_);
-
   SparseDirectUMFPACK solver;
-  //SolverControl solver_control(1000, 1e-12);
-  //SolverCG<>solver(solver_control);
-  //solver.solve(system_matrix_,solution_,system_right_hand_side_, IdentityMatrix(solution_.size()));
   solver.initialize(system_matrix_);
   solver.vmult(solution_, system_right_hand_side_);
   affine_constraints_.distribute(solution_);
@@ -540,7 +465,6 @@ GravWave<dim>::output_result(const unsigned int timestep_number)
   
   std::string name = std::string("solution-") + std::to_string(timestep_number);
   
- // name += std::string(".gpl");
   name += std::string(".vtk");
 
   std::ofstream output(name);
@@ -561,20 +485,17 @@ GravWave<dim>::run()
     setup_system();
 
     VectorTools::interpolate(dof_handler_, 
-                             //affine_constraints_,
-                            // quadrature_,
                              InitialValues<dim>(), 
                              solution_); 
 
-    //assemble_system(); 
-   // solve();
     output_result(0);
- 
     unsigned int timestep_number = 1;
     time_+=time_step_;
-
+    std::cout << "time: " << time_ <<std::endl;
+    std::cout << "final_time: " << final_time_ <<std::endl;
     while (time_ <= final_time_)
       {
+	std::cout << "GravWave<dim>::Time Stepping()" << std::endl;
          old_solution_ = solution_;
 
 	 std::cout << std::endl
@@ -583,9 +504,9 @@ GravWave<dim>::run()
  
          assemble_system();
 
-        // solve();
+         solve();
 
-        // output_result(timestep_number);
+         output_result(timestep_number);
       
          time_ += time_step_;
          timestep_number++;
@@ -602,4 +523,3 @@ int main()
 
   return 0;
 }
-                                           
