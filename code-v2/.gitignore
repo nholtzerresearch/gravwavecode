@@ -1,7 +1,8 @@
-MakeCache.txt
+CMakeCache.txt
 CMakeFiles/
-Makefile
 cmake_install.cmake
 gravwave
+gravwave.prm
+MakeCache.txt
+Makefile
 solution*
-CMakeCache.txt
