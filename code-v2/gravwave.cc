@@ -26,6 +26,7 @@
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
 #include <deal.II/lac/vector_memory.h>
+#include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
 #include "helper.h"
@@ -229,7 +230,7 @@ private:
 
 
 template <int dim>
-class OfflineData
+class OfflineData : public Subscriptor
 {
 public:
   OfflineData(const Coefficients &coefficients,
@@ -258,7 +259,6 @@ public:
   SparseMatrix<double> mass_matrix;
   SparseMatrix<double> stiffness_matrix;
 
-private:
   SmartPointer<const Coefficients> p_coefficients;
   SmartPointer<const Discretization<dim>> p_discretization;
 };
@@ -294,7 +294,7 @@ void OfflineData<dim>::setup()
 template <int dim>
 void OfflineData<dim>::setup_constraints()
 {
-  deallog << "OfflineData<dim>::setup_constraints()" << std::endl;
+  std::cout << "OfflineData<dim>::setup_constraints()" << std::endl;
   affine_constraints.clear();
 
   const auto &coefficients = *p_coefficients;
@@ -334,7 +334,7 @@ void OfflineData<dim>::setup_constraints()
 template <int dim>
 void OfflineData<dim>::assemble()
 {
-  deallog << "OfflineData<dim>::assemble_system()" << std::endl;
+  std::cout << "OfflineData<dim>::assemble_system()" << std::endl;
 
   mass_matrix = 0.;
   stiffness_matrix = 0.;
@@ -446,13 +446,13 @@ public:
   void prepare();
 
   /* Updates the vector with the solution for the next time step: */
-  void step(Vector<double> &solution);
+  void step(Vector<double> &solution) const;
 
-private:
   SmartPointer<const OfflineData<dim>> p_offline_data;
-
   double kappa;
   double theta;
+
+private:
 
   SparseMatrix<double> L;
   SparseMatrix<double> R;
@@ -464,6 +464,8 @@ private:
 template <int dim>
 void TimeStep<dim>::prepare()
 {
+  std::cout << "TimeStep<dim>::prepare()" << std::endl;
+
   const auto &offline_data = *p_offline_data;
 
   L.reinit(offline_data.sparsity_pattern);
@@ -486,7 +488,7 @@ void TimeStep<dim>::prepare()
 
 
 template <int dim>
-void TimeStep<dim>::step(Vector<double> &solution)
+void TimeStep<dim>::step(Vector<double> &solution) const
 {
   GrowingVectorMemory<Vector<double>> vector_memory;
   typename VectorMemory<Vector<double>>::Pointer p_tmp(vector_memory);
@@ -505,19 +507,121 @@ void TimeStep<dim>::step(Vector<double> &solution)
 /* -------------------------------------------------------------------------- */
 
 
+template <int dim>
+class TimeLoop : public ParameterAcceptor
+{
+public:
+  TimeLoop(const TimeStep<dim> &time_step)
+      : ParameterAcceptor("D - TimeLoop")
+      , p_time_step(&time_step)
+  {
+    t_end = 1.0;
+    add_parameter("final time", t_end, "final time of the simulation");
+  }
+
+  void run();
+
+private:
+  SmartPointer<const TimeStep<dim>> p_time_step;
+
+  double t_end;
+};
+
+
+template <int dim>
+void TimeLoop<dim>::run()
+{
+  std::cout << "TimeLoop<dim>::run()" << std::endl;
+
+  const auto &time_step = *p_time_step;
+  const auto &offline_data = *time_step.p_offline_data;
+  const auto &coefficients = *offline_data.p_coefficients;
+  const auto &discretization = *offline_data.p_discretization;
+
+  const auto &mapping = discretization.mapping();
+  const auto &dof_handler = offline_data.dof_handler;
+
+  Vector<double> solution;
+  solution.reinit(dof_handler.n_dofs());
+
+  const double kappa = time_step.kappa;
+
+
+  unsigned int n = 0;
+  double t = 0;
+  for (; t <= t_end + 1.0e-10;) {
+
+    std::cout << "time step n = " << n << "\tt = " << t << std::endl;
+
+    if (n == 0) {
+      std::cout << "    interpolate initial values" << std::endl;
+
+      /* interpolate initial conditions: */
+
+      const auto &initial_values = coefficients.initial_values;
+
+      const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
+        Assert(component <= 1, ExcMessage("need exactly two components"));
+
+        const auto value = initial_values(/* r = */ p[0]);
+
+        if (component == 0)
+          return value.real();
+        else
+          return value.imag();
+      };
+
+      VectorTools::interpolate(mapping,
+                               dof_handler,
+                               to_function<dim, /*components*/ 2>(lambda),
+                               solution);
+    } else {
+
+      time_step.step(solution);
+
+    }
+
+    {
+      /* output: */
+      dealii::DataOut<dim> data_out;
+      data_out.attach_dof_handler(dof_handler);
+      data_out.add_data_vector(solution, "solution");
+      data_out.build_patches(/* FIXME: adjust for DEGREE of ansatz */);
+
+      std::string name = std::string("solution-") + std::to_string(n) +
+                         std::string(".gnuplot");
+      std::ofstream output(name);
+
+      data_out.write_gnuplot(output);
+    }
+
+    n += 1;
+    t += kappa;
+
+  } /* for */
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+
 int main()
 {
   constexpr int dim = 1;
 
   Coefficients coefficients;
-
   Discretization<dim> discretization(coefficients);
-
   OfflineData<dim> offline_data(coefficients, discretization);
+  TimeStep<dim> time_step(offline_data);
+  TimeLoop<dim> time_loop(time_step);
 
   ParameterAcceptor::initialize("gravwave.prm");
 
   offline_data.prepare();
+  time_step.prepare();
+
+  time_loop.run();
 
   return 0;
 }
