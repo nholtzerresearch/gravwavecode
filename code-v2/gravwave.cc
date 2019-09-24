@@ -175,8 +175,8 @@ public:
     GridGenerator::hyper_cube(
         triangulation, p_coefficients->R_0, p_coefficients->R_1);
 
-    triangulation.begin_active()->face(0)->set_boundary_id(1);
-    triangulation.begin_active()->face(1)->set_boundary_id(1);
+    triangulation.begin_active()->face(0)->set_boundary_id(0); // FIXME
+    triangulation.begin_active()->face(1)->set_boundary_id(0); // FIXME
 
     triangulation.refine_global(refinement);
 
@@ -474,13 +474,18 @@ void TimeStep<dim>::prepare()
   const auto &M = offline_data.mass_matrix;
   const auto &S = offline_data.stiffness_matrix;
 
-  /* R = M + theta * kappa * S */
-  R.copy_from(M);
-  R.add(theta * kappa, S);
+  /*
+   * We want to solve the equation:
+   * M ( U^n+1 - U^n ) + kappa * (1-\theta) S U^n+1 + kappa * theta S U^n = 0
+   */
 
-  /* L = M - (1. - theta) * kappa * S */
+  /* R = M - theta * kappa * S */
+  R.copy_from(M);
+  R.add(-theta * kappa, S);
+
+  /* L = M + (1. - theta) * kappa * S */
   L.copy_from(M);
-  L.add(-(1. - theta) * kappa, S);
+  L.add((1. - theta) * kappa, S);
 
   /* L_inverse = L^-1 */
   L_inverse.initialize(L);
