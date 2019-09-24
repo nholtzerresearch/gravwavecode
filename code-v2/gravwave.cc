@@ -22,8 +22,10 @@
 #include <deal.II/grid/tria.h>
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
+#include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
+#include <deal.II/lac/vector_memory.h>
 #include <deal.II/numerics/vector_tools.h>
 
 #include "helper.h"
@@ -42,7 +44,7 @@ public:
   static constexpr value_type imag{0., 1.};
 
   Coefficients()
-    : ParameterAcceptor("A - Coefficients")
+      : ParameterAcceptor("A - Coefficients")
   {
     R_0 = 0.001;
     add_parameter("R_0", R_0, "inner radius of the computational domain");
@@ -116,7 +118,6 @@ public:
   std::function<value_type(double)> initial_values;
 
 private:
-
   /* Private functions: */
 
   std::function<value_type(double)> f;
@@ -142,16 +143,15 @@ public:
   static_assert(dim == 1, "Only implemented for 1D");
 
   Discretization(const Coefficients &coefficients)
-    : ParameterAcceptor("B - Discretization")
-    , p_coefficients(&coefficients)
+      : ParameterAcceptor("B - Discretization")
+      , p_coefficients(&coefficients)
   {
     ParameterAcceptor::parse_parameters_call_back.connect(
         std::bind(&Discretization<dim>::parse_parameters_callback, this));
 
     refinement = 5;
-    add_parameter("refinement",
-                  refinement,
-                  "refinement of the spatial geometry");
+    add_parameter(
+        "refinement", refinement, "refinement of the spatial geometry");
 
     order_mapping = 1;
     add_parameter("order mapping", order_mapping, "order of the mapping");
@@ -162,9 +162,8 @@ public:
                   "polynomial order of the finite element space");
 
     order_quadrature = 3;
-    add_parameter("order quadrature",
-                  order_quadrature,
-                  "order of the quadrature rule");
+    add_parameter(
+        "order quadrature", order_quadrature, "order of the quadrature rule");
   }
 
   void parse_parameters_callback()
@@ -209,19 +208,19 @@ public:
     return *p_quadrature;
   }
 
-  private:
-    SmartPointer<const Coefficients> p_coefficients;
+private:
+  SmartPointer<const Coefficients> p_coefficients;
 
-    std::unique_ptr<Triangulation<dim>> p_triangulation;
-    std::unique_ptr<const Mapping<dim>> p_mapping;
-    std::unique_ptr<const FiniteElement<dim>> p_finite_element;
-    std::unique_ptr<const Quadrature<dim>> p_quadrature;
+  std::unique_ptr<Triangulation<dim>> p_triangulation;
+  std::unique_ptr<const Mapping<dim>> p_mapping;
+  std::unique_ptr<const FiniteElement<dim>> p_finite_element;
+  std::unique_ptr<const Quadrature<dim>> p_quadrature;
 
-    unsigned int refinement;
+  unsigned int refinement;
 
-    unsigned int order_finite_element;
-    unsigned int order_mapping;
-    unsigned int order_quadrature;
+  unsigned int order_finite_element;
+  unsigned int order_mapping;
+  unsigned int order_quadrature;
 };
 
 
@@ -229,7 +228,7 @@ public:
 /* -------------------------------------------------------------------------- */
 
 
-template<int dim>
+template <int dim>
 class OfflineData
 {
 public:
@@ -300,19 +299,16 @@ void OfflineData<dim>::setup_constraints()
 
   const auto &coefficients = *p_coefficients;
 
-  const auto lambda = [&](const Point<dim> &p,
-                          const unsigned int component)
-  {
+  const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
     Assert(component <= 1, ExcMessage("need exactly two components"));
 
-    if(p[0] <= coefficients.R_0 + 1.e-6) {
+    if (p[0] <= coefficients.R_0 + 1.e-6) {
       if (component == 0)
         return coefficients.Psi_0.real();
       else
         return coefficients.Psi_0.imag();
 
-    }
-    else if(p[0] >= coefficients.R_1 - 1.e-6) {
+    } else if (p[0] >= coefficients.R_1 - 1.e-6) {
       if (component == 0)
         return coefficients.Psi_1.real();
       else
@@ -417,8 +413,8 @@ void OfflineData<dim>::assemble()
           cell_stiffness_matrix(i, j) += stiffness_term.real();
 
         } // for j
-      } // for i
-    } // for q_point
+      }   // for i
+    }     // for q_point
 
     affine_constraints.distribute_local_to_global(
         cell_mass_matrix, local_dof_indices, mass_matrix);
@@ -426,6 +422,82 @@ void OfflineData<dim>::assemble()
     affine_constraints.distribute_local_to_global(
         cell_stiffness_matrix, local_dof_indices, stiffness_matrix);
   }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+
+template <int dim>
+class TimeStep : public ParameterAcceptor
+{
+public:
+  TimeStep(const OfflineData<dim> &offline_data)
+      : ParameterAcceptor("C - TimeStep")
+      , p_offline_data(&offline_data)
+  {
+    kappa = 0.1;
+    add_parameter("kappa", kappa, "time step size");
+
+    theta = 0.5;
+    add_parameter("theta", theta, "theta paramter of the theta scheme");
+  }
+
+  void prepare();
+
+  /* Updates the vector with the solution for the next time step: */
+  void step(Vector<double> &solution);
+
+private:
+  SmartPointer<const OfflineData<dim>> p_offline_data;
+
+  double kappa;
+  double theta;
+
+  SparseMatrix<double> L;
+  SparseMatrix<double> R;
+
+  SparseDirectUMFPACK L_inverse;
+};
+
+
+template <int dim>
+void TimeStep<dim>::prepare()
+{
+  const auto &offline_data = *p_offline_data;
+
+  L.reinit(offline_data.sparsity_pattern);
+  R.reinit(offline_data.sparsity_pattern);
+
+  const auto &M = offline_data.mass_matrix;
+  const auto &S = offline_data.stiffness_matrix;
+
+  /* R = M + theta * kappa * S */
+  R.copy_from(M);
+  R.add(theta * kappa, S);
+
+  /* L = M - theta * kappa * S */
+  L.copy_from(M);
+  L.add(-theta * kappa, S);
+
+  /* L_inverse = L^-1 */
+  L_inverse.initialize(L);
+}
+
+
+template <int dim>
+void TimeStep<dim>::step(Vector<double> &solution)
+{
+  GrowingVectorMemory<Vector<double>> vector_memory;
+  typename VectorMemory<Vector<double>>::Pointer p_tmp(vector_memory);
+  auto &tmp = *p_tmp;
+
+  tmp.reinit(solution);
+
+  R.vmult(tmp, /* old */ solution);
+  L_inverse.vmult(/* new */ solution, tmp);
+
+  return;
 }
 
 
@@ -449,6 +521,4 @@ int main()
 
   return 0;
 }
-
-
 
