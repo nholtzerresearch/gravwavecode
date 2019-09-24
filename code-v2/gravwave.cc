@@ -522,6 +522,9 @@ public:
   {
     t_end = 1.0;
     add_parameter("final time", t_end, "final time of the simulation");
+
+    basename = "solution";
+    add_parameter("base name", basename, "base name for output files");
   }
 
   void run();
@@ -530,6 +533,7 @@ private:
   SmartPointer<const TimeStep<dim>> p_time_step;
 
   double t_end;
+  std::string basename;
 };
 
 
@@ -593,7 +597,7 @@ void TimeLoop<dim>::run()
       data_out.add_data_vector(solution, "solution");
       data_out.build_patches(/* FIXME: adjust for DEGREE of ansatz */);
 
-      std::string name = std::string("solution-") + std::to_string(n);
+      std::string name = basename + "-" + std::to_string(n);
 
       {
         std::ofstream output(name + std::string(".gnuplot"));
