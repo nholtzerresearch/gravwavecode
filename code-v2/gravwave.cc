@@ -139,6 +139,7 @@ template <int dim>
 class Discretization : public ParameterAcceptor
 {
 public:
+  static_assert(dim == 1, "Only implemented for 1D");
 
   Discretization(const Coefficients &coefficients)
     : ParameterAcceptor("B - Discretization")
