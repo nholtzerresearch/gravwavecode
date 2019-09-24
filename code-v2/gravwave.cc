@@ -93,9 +93,11 @@ public:
     d = [&](double r) { return imag * q * Q / (r * r); };
 
     initial_values = [&](double r) {
-      Assert(r >= R_0 && r <= R_1, ExcMessage("Radius r is out of range"));
-      return Psi_0 * (r - R_1) / (R_0 - R_1) + Psi_1 * (r - R_0) / (R_1 - R_0) +
-             Mu * std::cos(M_PI / (R_1 - R_0) * (r - (R_1 + R_0) / 2.));
+      double foobar = 0.1 * (R_1 - R_0) + R_0;
+      if (r > foobar)
+        return 0.;
+      else
+        return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
     };
   }
 
@@ -175,8 +177,8 @@ public:
     GridGenerator::hyper_cube(
         triangulation, p_coefficients->R_0, p_coefficients->R_1);
 
-    triangulation.begin_active()->face(0)->set_boundary_id(0); // FIXME
-    triangulation.begin_active()->face(1)->set_boundary_id(0); // FIXME
+    triangulation.begin_active()->face(0)->set_boundary_id(1); // FIXME
+    triangulation.begin_active()->face(1)->set_boundary_id(1); // FIXME
 
     triangulation.refine_global(refinement);
 
