@@ -95,7 +95,7 @@ public:
     initial_values = [&](double r) {
       Assert(r >= R_0 && r <= R_1, ExcMessage("Radius r is out of range"));
       return Psi_0 * (r - R_1) / (R_0 - R_1) + Psi_1 * (r - R_0) / (R_1 - R_0) +
-             Mu * std::cos(M_PI * (R_1 - R_0) / 2. * (r - (R_1 + R_0) / 2.));
+             Mu * std::cos(M_PI / (R_1 - R_0) * (r - (R_1 + R_0) / 2.));
     };
   }
 
@@ -478,9 +478,9 @@ void TimeStep<dim>::prepare()
   R.copy_from(M);
   R.add(theta * kappa, S);
 
-  /* L = M - theta * kappa * S */
+  /* L = M - (1. - theta) * kappa * S */
   L.copy_from(M);
-  L.add(-theta * kappa, S);
+  L.add(-(1. - theta) * kappa, S);
 
   /* L_inverse = L^-1 */
   L_inverse.initialize(L);
