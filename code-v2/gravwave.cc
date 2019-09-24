@@ -593,11 +593,16 @@ void TimeLoop<dim>::run()
       data_out.add_data_vector(solution, "solution");
       data_out.build_patches(/* FIXME: adjust for DEGREE of ansatz */);
 
-      std::string name = std::string("solution-") + std::to_string(n) +
-                         std::string(".gnuplot");
-      std::ofstream output(name);
+      std::string name = std::string("solution-") + std::to_string(n);
 
-      data_out.write_gnuplot(output);
+      {
+        std::ofstream output(name + std::string(".gnuplot"));
+        data_out.write_gnuplot(output);
+      }
+      {
+        std::ofstream output(name + std::string(".vtk"));
+        data_out.write_vtk(output);
+      }
     }
 
     n += 1;
