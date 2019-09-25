@@ -84,7 +84,8 @@ public:
       return 2. * f_prime(r) + 2. * (f(r) + imag * q * Q) / r;
     };
 
-    a = [&](double r) { return g(r) + 2. / r - f_prime(r); };
+    a = [&](double r) { return 2.*(f(r)-imag * q * Q + 1.) / r; };
+    // a = [&](double r) { return g(r) + 2. / r - f_prime(r); };
 
     b = [&](double r) { return 2. + f(r); };
 
@@ -152,7 +153,7 @@ public:
     ParameterAcceptor::parse_parameters_call_back.connect(
         std::bind(&Discretization<dim>::parse_parameters_callback, this));
 
-    refinement = 5;
+    refinement = 10;
     add_parameter(
         "refinement", refinement, "refinement of the spatial geometry");
 
@@ -438,7 +439,7 @@ public:
       : ParameterAcceptor("C - TimeStep")
       , p_offline_data(&offline_data)
   {
-    kappa = 0.1;
+    kappa = 0.01;
     add_parameter("kappa", kappa, "time step size");
 
     theta = 0.5;
