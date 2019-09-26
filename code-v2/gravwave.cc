@@ -104,7 +104,7 @@ public:
     };
 
     boundary_values = [&](double r, double t) {
-      return std::sin(10 * M_PI * r * t);
+      return 0.;
     };
   }
 
@@ -186,8 +186,8 @@ public:
     GridGenerator::hyper_cube(
         triangulation, p_coefficients->R_0, p_coefficients->R_1);
 
-    triangulation.begin_active()->face(0)->set_boundary_id(0); // FIXME
-    triangulation.begin_active()->face(1)->set_boundary_id(0); // FIXME
+    triangulation.begin_active()->face(0)->set_boundary_id(1); // FIXME
+    triangulation.begin_active()->face(1)->set_boundary_id(1); // FIXME
 
     triangulation.refine_global(refinement);
 
@@ -513,7 +513,7 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
   VectorTools::interpolate_boundary_values(
       mapping,
       dof_handler,
-      {{0, &boundary_value_function}},
+      {{1, &boundary_value_function}},
       boundary_value_map);
 
   for (auto it : boundary_value_map) {
@@ -525,6 +525,7 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
 template <int dim>
 void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
 {
+  /* FIXME: refactor this into parameters */
   const unsigned int linear_solver_limit = 1000;
   const double linear_solver_tol = 1.0e-12;
   const unsigned int nonlinear_solver_limit = 10;
@@ -563,7 +564,8 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
     const auto system_matrix_inverse =
         inverse_operator(system_matrix, solver, linear_part_inverse);
 
-    const auto update = system_matrix_inverse * (-1. * residual);
+    Vector<double> update = system_matrix_inverse * (-1. * residual);
+    affine_constraints.set_zero(update);
 
     new_solution += update;
   }
