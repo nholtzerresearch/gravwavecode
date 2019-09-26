@@ -22,6 +22,8 @@
 #include <deal.II/grid/tria.h>
 #include <deal.II/lac/affine_constraints.h>
 #include <deal.II/lac/dynamic_sparsity_pattern.h>
+#include <deal.II/lac/linear_operator_tools.h>
+#include <deal.II/lac/solver_gmres.h>
 #include <deal.II/lac/sparse_direct.h>
 #include <deal.II/lac/sparse_matrix.h>
 #include <deal.II/lac/sparsity_pattern.h>
@@ -101,8 +103,8 @@ public:
         return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
     };
 
-    left_boundary_values = [&](double r) {
-      return std::sin(10*M_PI*r);
+    boundary_values = [&](double r, double t) {
+      return std::sin(10 * M_PI * r * t);
     };
   }
 
@@ -124,7 +126,8 @@ public:
   std::function<value_type(double)> d;
 
   std::function<value_type(double)> initial_values;
-  std::function<value_type(double)> left_boundary_values;
+
+  std::function<value_type(double, double)> boundary_values;
 
 private:
   /* Private functions: */
@@ -312,33 +315,8 @@ void OfflineData<dim>::setup_constraints()
   std::cout << "OfflineData<dim>::setup_constraints()" << std::endl;
   affine_constraints.clear();
 
-  const auto &coefficients = *p_coefficients;
-
-  const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
-    Assert(component <= 1, ExcMessage("need exactly two components"));
-
-    if (p[0] <= coefficients.R_0 + 1.e-6) {
-      if (component == 0)
-        return coefficients.Psi_0.real();
-      else
-        return coefficients.Psi_0.imag();
-
-    } else if (p[0] >= coefficients.R_1 - 1.e-6) {
-      if (component == 0)
-        return coefficients.Psi_1.real();
-      else
-        return coefficients.Psi_1.imag();
-    }
-
-    Assert(false, ExcMessage("Not at boundary!"));
-    __builtin_trap();
-  };
-
   VectorTools::interpolate_boundary_values(
-      dof_handler,
-      1,
-      to_function<dim, /*components*/ 2>(lambda),
-      affine_constraints);
+      dof_handler, 1, ZeroFunction<dim>(2), affine_constraints);
 
   DoFTools::make_hanging_node_constraints(dof_handler, affine_constraints);
 
@@ -477,18 +455,15 @@ public:
   void prepare();
 
   /* Updates the vector with the solution for the next time step: */
-  void step(Vector<double> &solution) const;
+  void step(Vector<double> &old_solution, double new_t) const;
 
   SmartPointer<const OfflineData<dim>> p_offline_data;
   double kappa;
   double theta;
 
 private:
-
-  SparseMatrix<double> L;
-  SparseMatrix<double> R;
-
-  SparseDirectUMFPACK L_inverse;
+  SparseMatrix<double> linear_part;
+  SparseDirectUMFPACK linear_part_inverse;
 };
 
 
@@ -496,46 +471,114 @@ template <int dim>
 void TimeStep<dim>::prepare()
 {
   std::cout << "TimeStep<dim>::prepare()" << std::endl;
-
   const auto &offline_data = *p_offline_data;
 
-  L.reinit(offline_data.sparsity_pattern);
-  R.reinit(offline_data.sparsity_pattern);
+  linear_part.reinit(offline_data.sparsity_pattern);
+  const auto &M_c = offline_data.mass_matrix;
+  const auto &S_c = offline_data.stiffness_matrix;
 
-  const auto &M = offline_data.mass_matrix;
-  const auto &S = offline_data.stiffness_matrix;
+  /* linear_part = M_c + (1. - theta) * kappa * S_c */
+  linear_part.copy_from(M_c);
+  linear_part.add((1. - theta) * kappa, S_c);
+}
 
-  /*
-   * We want to solve the equation:
-   * M ( U^n+1 - U^n ) + kappa * (1-\theta) S U^n+1 + kappa * theta S U^n = 0
-   */
 
-  /* R = M - theta * kappa * S */
-  R.copy_from(M);
-  R.add(-theta * kappa, S);
+template<int dim>
+void apply_boundary_values(const OfflineData<dim> &offline_data,
+                           const Coefficients &coefficients,
+                           double t,
+                           Vector<double> &vector)
+{
+  const auto &mapping = offline_data.p_discretization->mapping();
+  const auto &dof_handler = offline_data.dof_handler;
 
-  /* L = M + (1. - theta) * kappa * S */
-  L.copy_from(M);
-  L.add((1. - theta) * kappa, S);
+  const auto &boundary_values = coefficients.boundary_values;
 
-  /* L_inverse = L^-1 */
-  L_inverse.initialize(L);
+  std::map<types::global_dof_index, double> boundary_value_map;
+
+  const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
+    Assert(component <= 1, ExcMessage("need exactly two components"));
+
+    const auto value = boundary_values(/* r = */ p[0], /* t = */ t);
+
+    if (component == 0)
+      return value.real();
+    else
+      return value.imag();
+  };
+
+  const auto boundary_value_function =
+      to_function<dim, /*components*/ 2>(lambda);
+
+  VectorTools::interpolate_boundary_values(
+      mapping,
+      dof_handler,
+      {{0, &boundary_value_function}},
+      boundary_value_map);
+
+  for (auto it : boundary_value_map) {
+    vector[it.first] = it.second;
+  }
 }
 
 
 template <int dim>
-void TimeStep<dim>::step(Vector<double> &solution) const
+void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
 {
+  const unsigned int linear_solver_limit = 1000;
+  const double linear_solver_tol = 1.0e-12;
+  const unsigned int nonlinear_solver_limit = 10;
+  const double nonlinear_solver_tol = 1.0e-12;
+
+  const auto &offline_data = *p_offline_data;
+  const auto &coefficients = *offline_data.p_coefficients;
+  const auto &affine_constraints = offline_data.affine_constraints;
+
+  const auto M_c = linear_operator(offline_data.mass_matrix);
+  const auto S_c = linear_operator(offline_data.stiffness_matrix);
+  const auto M_u = linear_operator(offline_data.mass_matrix_unconstrained);
+  const auto S_u = linear_operator(offline_data.stiffness_matrix_unconstrained);
+
   GrowingVectorMemory<Vector<double>> vector_memory;
-  typename VectorMemory<Vector<double>>::Pointer p_tmp(vector_memory);
-  auto &tmp = *p_tmp;
+  typename VectorMemory<Vector<double>>::Pointer p_new_solution(vector_memory);
+  auto &new_solution = *p_new_solution;
 
-  tmp.reinit(solution);
+  new_solution = old_solution;
+  apply_boundary_values(offline_data, coefficients, new_t, new_solution);
 
-  R.vmult(tmp, /* old */ solution);
-  L_inverse.vmult(/* new */ solution, tmp);
+  for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
+    Vector<double> residual = M_u * (new_solution - old_solution) +
+                              kappa * (1. - theta) * S_u * new_solution +
+                              theta * kappa * S_u * old_solution;
+    affine_constraints.set_zero(residual);
 
-  return;
+    if (residual.linfty_norm() < nonlinear_solver_tol)
+      break;
+
+    const auto system_matrix = linear_operator(linear_part);
+
+    SolverControl solver_control(linear_solver_limit, linear_solver_tol);
+    SolverGMRES<> solver(solver_control);
+
+    const auto system_matrix_inverse =
+        inverse_operator(system_matrix, solver, linear_part_inverse);
+
+    const auto update = system_matrix_inverse * (-1. * residual);
+
+    new_solution += update;
+  }
+
+  {
+    Vector<double> residual = M_u * (new_solution - old_solution) +
+                              kappa * (1. - theta) * S_u * new_solution +
+                              theta * kappa * S_u * old_solution;
+    affine_constraints.set_zero(residual);
+
+    if (residual.linfty_norm() > nonlinear_solver_tol)
+      throw ExcMessage("non converged");
+  }
+
+  old_solution = new_solution;
 }
 
 
@@ -617,7 +660,7 @@ void TimeLoop<dim>::run()
                                solution);
     } else {
 
-      time_step.step(solution);
+      time_step.step(solution, t);
 
     }
 
