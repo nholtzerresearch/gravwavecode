@@ -100,6 +100,10 @@ public:
       else
         return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
     };
+
+    left_boundary_values = [&](double r) {
+      return std::sin(10*M_PI*r);
+    };
   }
 
   /* Publicly readable parameters: */
@@ -120,6 +124,7 @@ public:
   std::function<value_type(double)> d;
 
   std::function<value_type(double)> initial_values;
+  std::function<value_type(double)> left_boundary_values;
 
 private:
   /* Private functions: */
@@ -178,8 +183,8 @@ public:
     GridGenerator::hyper_cube(
         triangulation, p_coefficients->R_0, p_coefficients->R_1);
 
-    triangulation.begin_active()->face(0)->set_boundary_id(1); // FIXME
-    triangulation.begin_active()->face(1)->set_boundary_id(1); // FIXME
+    triangulation.begin_active()->face(0)->set_boundary_id(0); // FIXME
+    triangulation.begin_active()->face(1)->set_boundary_id(0); // FIXME
 
     triangulation.refine_global(refinement);
 
