@@ -153,7 +153,7 @@ public:
     ParameterAcceptor::parse_parameters_call_back.connect(
         std::bind(&Discretization<dim>::parse_parameters_callback, this));
 
-    refinement = 10;
+    refinement = 5;
     add_parameter(
         "refinement", refinement, "refinement of the spatial geometry");
 
@@ -439,7 +439,7 @@ public:
       : ParameterAcceptor("C - TimeStep")
       , p_offline_data(&offline_data)
   {
-    kappa = 0.01;
+    kappa = 0.1;
     add_parameter("kappa", kappa, "time step size");
 
     theta = 0.5;
