@@ -480,6 +480,8 @@ void TimeStep<dim>::prepare()
   /* linear_part = M_c + (1. - theta) * kappa * S_c */
   linear_part.copy_from(M_c);
   linear_part.add((1. - theta) * kappa, S_c);
+
+  linear_part_inverse.initialize(linear_part);
 }
 
 
