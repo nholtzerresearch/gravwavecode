@@ -100,6 +100,10 @@ public:
       else
         return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
     };
+
+    left_boundary_values = [&](double r) {
+      return std::sin(10*M_PI*r);
+    };
   }
 
   /* Publicly readable parameters: */
@@ -120,6 +124,7 @@ public:
   std::function<value_type(double)> d;
 
   std::function<value_type(double)> initial_values;
+  std::function<value_type(double)> left_boundary_values;
 
 private:
   /* Private functions: */
@@ -178,8 +183,8 @@ public:
     GridGenerator::hyper_cube(
         triangulation, p_coefficients->R_0, p_coefficients->R_1);
 
-    triangulation.begin_active()->face(0)->set_boundary_id(1); // FIXME
-    triangulation.begin_active()->face(1)->set_boundary_id(1); // FIXME
+    triangulation.begin_active()->face(0)->set_boundary_id(0); // FIXME
+    triangulation.begin_active()->face(1)->set_boundary_id(0); // FIXME
 
     triangulation.refine_global(refinement);
 
@@ -246,11 +251,11 @@ public:
   void prepare()
   {
     setup();
-    assemble();
+    newton_assemble();
   }
 
   void setup();
-  void assemble();
+  void newton_assemble();
 
   void setup_constraints();
 
@@ -335,9 +340,9 @@ void OfflineData<dim>::setup_constraints()
 
 
 template <int dim>
-void OfflineData<dim>::assemble()
+void OfflineData<dim>::newton_assemble()
 {
-  std::cout << "OfflineData<dim>::assemble_system()" << std::endl;
+  std::cout << "OfflineData<dim>::newton_assemble_system()" << std::endl;
 
   mass_matrix = 0.;
   stiffness_matrix = 0.;
@@ -350,7 +355,7 @@ void OfflineData<dim>::assemble()
 
   FullMatrix<double> cell_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
-
+  
   FEValues<dim> fe_values(mapping,
                           finite_element,
                           quadrature,
@@ -364,6 +369,8 @@ void OfflineData<dim>::assemble()
 
   const unsigned int n_q_points = quadrature.size();
 
+  std::vector<Tensor<1,dim>> old_solution_gradients(n_q_points);
+  
   for (auto cell : dof_handler.active_cell_iterators()) {
 
     cell_mass_matrix = 0;
@@ -377,6 +384,8 @@ void OfflineData<dim>::assemble()
     const auto imag = Coefficients::imag;
     const auto rot_x = 1.;
     const auto rot_y = -imag;
+
+    //fe_values.get_function_gradients(solution, old_solution_gradients);
 
     for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
 
@@ -408,7 +417,7 @@ void OfflineData<dim>::assemble()
                               imag * imag_part.gradient(j, q_point);
 
           const auto mass_term = (c * value_i - 2. * grad_i[0]) * value_j * JxW;
-          cell_mass_matrix(i, j) += mass_term.real();
+          cell_mass_matrix(i, j) += mass_term.real();//Need to add * old_solution_gradients
 
           const auto stiffness_term =
               (a * value_i - b * grad_i[0]) * grad_j[0] * JxW +
@@ -426,7 +435,6 @@ void OfflineData<dim>::assemble()
         cell_stiffness_matrix, local_dof_indices, stiffness_matrix);
   }
 }
-
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
@@ -458,7 +466,7 @@ public:
 private:
 
   SparseMatrix<double> L;
-  SparseMatrix<double> R;
+  SparseMatrix<double> Residual;
 
   SparseDirectUMFPACK L_inverse;
 };
@@ -472,23 +480,29 @@ void TimeStep<dim>::prepare()
   const auto &offline_data = *p_offline_data;
 
   L.reinit(offline_data.sparsity_pattern);
-  R.reinit(offline_data.sparsity_pattern);
+  Residual.reinit(offline_data.sparsity_pattern);
 
   const auto &M = offline_data.mass_matrix;
   const auto &S = offline_data.stiffness_matrix;
 
+  //const auto &M_u = offline_data.cell_mass_matrix;
+  //const auto &S_u = offline_data.cell_stiffness_matrix;
   /*
    * We want to solve the equation:
    * M ( U^n+1 - U^n ) + kappa * (1-\theta) S U^n+1 + kappa * theta S U^n = 0
    */
 
-  /* R = M - theta * kappa * S */
-  R.copy_from(M);
-  R.add(-theta * kappa, S);
+  /* Residual = -( M ( U^n+1 - U^n, omega) - kappa * (1 - theta) * S(U^n,omega)-                 + kappa * theta * S(U^n, omega) */
+  Residual.copy_from(M);
+  Residual.add(-theta * kappa, S);//FIXME
 
   /* L = M + (1. - theta) * kappa * S */
   L.copy_from(M);
   L.add((1. - theta) * kappa, S);
+
+  /* Residual = -( M ( U^n+1 - U^n, omega) - kappa * (1 - theta) * S(U^n,omega)-                 + kappa * theta * S(U^n, omega) */
+
+
 
   /* L_inverse = L^-1 */
   L_inverse.initialize(L);
@@ -504,7 +518,7 @@ void TimeStep<dim>::step(Vector<double> &solution) const
 
   tmp.reinit(solution);
 
-  R.vmult(tmp, /* old */ solution);
+  Residual.vmult(tmp, /* old */ solution);
   L_inverse.vmult(/* new */ solution, tmp);
 
   return;
@@ -554,7 +568,9 @@ void TimeLoop<dim>::run()
   const auto &dof_handler = offline_data.dof_handler;
 
   Vector<double> solution;
+  Vector<double> old_solution;
   solution.reinit(dof_handler.n_dofs());
+  old_solution.reinit(dof_handler.n_dofs());
 
   const double kappa = time_step.kappa;
 
