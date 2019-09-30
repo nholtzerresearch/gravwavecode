@@ -297,7 +297,7 @@ void OfflineData<dim>::setup()
 
   DynamicSparsityPattern c_sparsity(dof_handler.n_dofs(), dof_handler.n_dofs());
   DoFTools::make_sparsity_pattern(
-      dof_handler, c_sparsity, affine_constraints, false);
+      dof_handler, c_sparsity, affine_constraints, true);
 
   sparsity_pattern.copy_from(c_sparsity);
 
