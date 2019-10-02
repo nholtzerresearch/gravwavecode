@@ -73,6 +73,11 @@ public:
     Mu = 2.;
     add_parameter("Mu", Mu, "mu parameter of the initial envelope");
 
+    coef1 = 1.;
+    add_parameter("coef1", coef1, "coefficient on r in the manufactured sol.");
+
+    coef2 = 1.;
+    add_parameter("coef2", coef2, "coefficient on t in the manufactured sol.");
 
     f = [&](double r) {
       return 1. - (2. * M / r) + (Q * Q) / (r * r) + 0. * imag;
@@ -106,6 +111,13 @@ public:
     boundary_values = [&](double r, double t) {
       return 0.;
     };
+
+    manufactured_solution_rhs = [&](double r, double t) {
+      return (r * (-2. * coef2 + coef1 * (2. + g(r) * r)) * 
+	     std::cos(coef1 * r - coef2 * t) + 
+	     (imag * q * Q - coef1 * (-2. * coef2 + coef1 * (2. + f(r))) * 
+	     (r * r)) * std::sin(coef1 * r - coef2 * t)) / (r * r);		
+    };
   }
 
   /* Publicly readable parameters: */
@@ -129,6 +141,8 @@ public:
 
   std::function<value_type(double, double)> boundary_values;
 
+  std::function<value_type(double, double)> manufactured_solution_rhs;
+
 private:
   /* Private functions: */
 
@@ -141,6 +155,8 @@ private:
   double M;
   double Q;
   double q;
+  double coef1;
+  double coef2;
 };
 
 
@@ -450,6 +466,18 @@ public:
 
     theta = 0.5;
     add_parameter("theta", theta, "theta paramter of the theta scheme");
+
+    linear_solver_limit = 1000.;
+    add_parameter("linear_solver_limit", linear_solver_limit, "max number of iterations in newton scheme for linear (left) side");
+
+    linear_solver_tol = 1.0e-12;
+    add_parameter("linear_solver_tol", linear_solver_tol, "tolerance to determine if newton step should keep running on left");
+
+    nonlinear_solver_limit = 100.;
+    add_parameter("nonlinear_solver_limit", nonlinear_solver_limit, "max number of iterations in newton scheme for nonlinear (right) side");
+
+    nonlinear_solver_tol = 1.0e-12;
+    add_parameter("nonlinear_solver_tol", nonlinear_solver_tol, "tolerance to determine if newton step should keep running on right");
   }
 
   void prepare();
@@ -460,6 +488,11 @@ public:
   SmartPointer<const OfflineData<dim>> p_offline_data;
   double kappa;
   double theta;
+
+  unsigned int linear_solver_limit;
+  double linear_solver_tol;
+  unsigned int nonlinear_solver_limit;
+  double nonlinear_solver_tol;
 
 private:
   SparseMatrix<double> linear_part;
@@ -527,12 +560,6 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
 template <int dim>
 void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
 {
-  /* FIXME: refactor this into parameters */
-  const unsigned int linear_solver_limit = 1000;
-  const double linear_solver_tol = 1.0e-12;
-  const unsigned int nonlinear_solver_limit = 10;
-  const double nonlinear_solver_tol = 1.0e-12;
-
   const auto &offline_data = *p_offline_data;
   const auto &coefficients = *offline_data.p_coefficients;
   const auto &affine_constraints = offline_data.affine_constraints;
@@ -577,7 +604,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
                               kappa * (1. - theta) * S_u * new_solution +
                               theta * kappa * S_u * old_solution;
     affine_constraints.set_zero(residual);
-
+    std::cout<<"norm of residual: "<<residual.linfty_norm()<<std::endl;
     if (residual.linfty_norm() > nonlinear_solver_tol)
       throw ExcMessage("non converged");
   }
@@ -707,7 +734,6 @@ int main()
   OfflineData<dim> offline_data(coefficients, discretization);
   TimeStep<dim> time_step(offline_data);
   TimeLoop<dim> time_loop(time_step);
-
   ParameterAcceptor::initialize("gravwave.prm");
 
   offline_data.prepare();
