@@ -112,11 +112,11 @@ public:
       return 0.;
     };
 
+    //RHS resulting from ansatz solution: Psi=sin(ar - bt)
     manufactured_solution_rhs = [&](double r, double t) {
       return (r * (-2. * coef2 + coef1 * (2. + g(r) * r)) * 
 	     std::cos(coef1 * r - coef2 * t) + 
-	     (imag * q * Q - coef1 * (-2. * coef2 + coef1 * (2. + f(r))) * 
-	     (r * r)) * std::sin(coef1 * r - coef2 * t)) / (r * r);		
+	     (imag * q * Q - coef1 * (-2. * coef2 + coef1 * (2. + f(r))) 	     * (r * r)) * std::sin(coef1 * r - coef2 * t)) / (r * r);		
     };
   }
 
@@ -292,7 +292,6 @@ public:
   SparseMatrix<double> stiffness_matrix;
   SparseMatrix<double> stiffness_matrix_unconstrained;
 
-  //Vector<double> ms_source;
 
   SmartPointer<const Coefficients> p_coefficients;
   SmartPointer<const Discretization<dim>> p_discretization;
@@ -344,10 +343,10 @@ void OfflineData<dim>::setup_constraints()
 }
 
 template<int dim>
-double get_manufactured_source(const OfflineData<dim> &offline_data,
-			     const Coefficients &coefficients,
-			     double r, 
-			     const double t)
+double get_manufactured_source(const OfflineData<dim>&offline_data,
+			       const Coefficients&coefficients,
+			       double r, 
+			       const double t)
 
 {
   std::cout << "OfflineData<dim>::get_manufactured_source()" << std::endl;
@@ -370,7 +369,6 @@ void OfflineData<dim>::assemble()
   mass_matrix_unconstrained = 0.;
   stiffness_matrix = 0.;
   stiffness_matrix_unconstrained = 0.;
-  //ms_source = 0.;
 
   const auto &mapping = p_discretization->mapping();
   const auto &finite_element = p_discretization->finite_element();
@@ -401,7 +399,6 @@ void OfflineData<dim>::assemble()
     cell_mass_matrix = 0;
     cell_stiffness_matrix = 0.;
 
-    //cell_ms_source = 0.; 
     fe_values.reinit(cell);
     cell->get_dof_indices(local_dof_indices);
 
@@ -422,6 +419,7 @@ void OfflineData<dim>::assemble()
       const auto d = p_coefficients->d(r);
 
       const auto JxW = fe_values.JxW(q_point);
+      const auto source = get_manufactured_source(q_point, 0.); 
 
       // index i for test space, index j for ansatz space
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
