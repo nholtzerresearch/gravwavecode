@@ -203,7 +203,7 @@ public:
         triangulation, p_coefficients->R_0, p_coefficients->R_1);
 
     triangulation.begin_active()->face(0)->set_boundary_id(1); // FIXME
-    triangulation.begin_active()->face(1)->set_boundary_id(1); // FIXME
+    triangulation.begin_active()->face(1)->set_boundary_id(0); // FIXME
 
     triangulation.refine_global(refinement);
 
@@ -278,6 +278,8 @@ public:
 
   void setup_constraints();
 
+  double get_manufactured_source(const double r, const double t);
+
   DoFHandler<dim> dof_handler;
   SparsityPattern sparsity_pattern;
 
@@ -289,6 +291,8 @@ public:
   SparseMatrix<double> mass_matrix_unconstrained;
   SparseMatrix<double> stiffness_matrix;
   SparseMatrix<double> stiffness_matrix_unconstrained;
+
+  //Vector<double> ms_source;
 
   SmartPointer<const Coefficients> p_coefficients;
   SmartPointer<const Discretization<dim>> p_discretization;
@@ -339,6 +343,22 @@ void OfflineData<dim>::setup_constraints()
   affine_constraints.close();
 }
 
+template<int dim>
+double get_manufactured_source(const OfflineData<dim> &offline_data,
+			     const Coefficients &coefficients,
+			     double r, 
+			     const double t)
+
+{
+  std::cout << "OfflineData<dim>::get_manufactured_source()" << std::endl;
+
+  const auto &manufactured_solution_rhs = coefficients.manufactured_solution_rhs;
+  const auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
+
+  return value ;
+
+}
+
 
 template <int dim>
 void OfflineData<dim>::assemble()
@@ -350,6 +370,7 @@ void OfflineData<dim>::assemble()
   mass_matrix_unconstrained = 0.;
   stiffness_matrix = 0.;
   stiffness_matrix_unconstrained = 0.;
+  //ms_source = 0.;
 
   const auto &mapping = p_discretization->mapping();
   const auto &finite_element = p_discretization->finite_element();
@@ -380,6 +401,7 @@ void OfflineData<dim>::assemble()
     cell_mass_matrix = 0;
     cell_stiffness_matrix = 0.;
 
+    //cell_ms_source = 0.; 
     fe_values.reinit(cell);
     cell->get_dof_indices(local_dof_indices);
 
