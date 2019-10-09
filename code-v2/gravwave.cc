@@ -347,7 +347,7 @@ template <int dim>
 Coefficients::value_type
 OfflineData<dim>::get_manufactured_source(double r, const double t)
 {
-  std::cout << "OfflineData<dim>::get_manufactured_source()" << std::endl;
+  //std::cout << "OfflineData<dim>::get_manufactured_source()" << std::endl;
 
   const auto &manufactured_solution_rhs =
       p_coefficients->manufactured_solution_rhs;
@@ -419,6 +419,7 @@ void OfflineData<dim>::assemble()
       const auto JxW = fe_values.JxW(q_point);
       const auto source = get_manufactured_source(q_point, 0.); 
 
+
       // index i for test space, index j for ansatz space
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
 
@@ -444,7 +445,7 @@ void OfflineData<dim>::assemble()
 
           const auto stiffness_term =
               (a * value_i - b * grad_i[0]) * grad_j[0] * JxW +
-              d * value_i * value_j * JxW;
+              d * value_i * value_j * JxW - source * value_i * JxW;
           cell_stiffness_matrix(i, j) += stiffness_term.real();
 
         } // for j
@@ -458,9 +459,9 @@ void OfflineData<dim>::assemble()
         cell_mass_matrix, local_dof_indices, mass_matrix);
 
     mass_matrix_unconstrained.add(local_dof_indices, cell_mass_matrix);
-
     affine_constraints.distribute_local_to_global(
         cell_stiffness_matrix, local_dof_indices, stiffness_matrix);
+    exit(0);
 
     stiffness_matrix_unconstrained.add(local_dof_indices,
                                        cell_stiffness_matrix);
