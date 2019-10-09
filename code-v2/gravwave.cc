@@ -278,7 +278,8 @@ public:
 
   void setup_constraints();
 
-  double get_manufactured_source(const double r, const double t);
+  Coefficients::value_type
+  get_manufactured_source(const double r, const double t);
 
   DoFHandler<dim> dof_handler;
   SparsityPattern sparsity_pattern;
@@ -342,20 +343,17 @@ void OfflineData<dim>::setup_constraints()
   affine_constraints.close();
 }
 
-template<int dim>
-double get_manufactured_source(const OfflineData<dim>&offline_data,
-			       const Coefficients&coefficients,
-			       double r, 
-			       const double t)
-
+template <int dim>
+Coefficients::value_type
+OfflineData<dim>::get_manufactured_source(double r, const double t)
 {
   std::cout << "OfflineData<dim>::get_manufactured_source()" << std::endl;
 
-  const auto &manufactured_solution_rhs = coefficients.manufactured_solution_rhs;
+  const auto &manufactured_solution_rhs =
+      p_coefficients->manufactured_solution_rhs;
   const auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
 
-  return value ;
-
+  return value;
 }
 
 
