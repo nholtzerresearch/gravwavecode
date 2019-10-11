@@ -105,11 +105,18 @@ public:
       if (r > foobar)
         return 0.;
       else
-        return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
+	return std::sin(coef1 * r);
+        //return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
     };
 
     boundary_values = [&](double r, double t) {
-      return 0.;
+       //return 0.;
+       if (r == R_0)
+	 return std::sin(coef1 * R_0 - coef2 * t);
+       if (r == R_1)
+	 return std::sin(coef1 * R_1 - coef2 * t); 
+       else
+	 return 0.;
     };
 
     //RHS resulting from ansatz solution: Psi=sin(ar - bt)
@@ -275,7 +282,6 @@ public:
 
   void setup();
   void assemble();
-
   void setup_constraints();
 
   Coefficients::value_type
@@ -312,7 +318,6 @@ void OfflineData<dim>::setup()
   std::cout << "        " << dof_handler.n_dofs() << " DoFs" << std::endl;
 
   DoFRenumbering::Cuthill_McKee(dof_handler);
-
   setup_constraints();
 
   DynamicSparsityPattern c_sparsity(dof_handler.n_dofs(), dof_handler.n_dofs());
@@ -334,10 +339,10 @@ void OfflineData<dim>::setup_constraints()
 {
   std::cout << "OfflineData<dim>::setup_constraints()" << std::endl;
   affine_constraints.clear();
-
+  const auto &boundary_values = 
+      p_coefficients->boundary_values;
   VectorTools::interpolate_boundary_values(
       dof_handler, 1, ZeroFunction<dim>(2), affine_constraints);
-
   DoFTools::make_hanging_node_constraints(dof_handler, affine_constraints);
 
   affine_constraints.close();
@@ -417,7 +422,7 @@ void OfflineData<dim>::assemble()
       const auto d = p_coefficients->d(r);
 
       const auto JxW = fe_values.JxW(q_point);
-      const auto source = get_manufactured_source(q_point, 0.); 
+      const auto source = get_manufactured_source(r, 0); 
 
 
       // index i for test space, index j for ansatz space
@@ -461,7 +466,6 @@ void OfflineData<dim>::assemble()
     mass_matrix_unconstrained.add(local_dof_indices, cell_mass_matrix);
     affine_constraints.distribute_local_to_global(
         cell_stiffness_matrix, local_dof_indices, stiffness_matrix);
-    exit(0);
 
     stiffness_matrix_unconstrained.add(local_dof_indices,
                                        cell_stiffness_matrix);
