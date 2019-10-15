@@ -257,8 +257,31 @@ private:
   unsigned int order_mapping;
   unsigned int order_quadrature;
 };
+/*----------------------------------------------------------------------------*//*----------------------------------------------------------------------------*/
+class ManufacturedSolution
+{
+public:
+  void set_time(double new_t)
+  {
+    t=new_t;
+  }
+  Coefficients::value_type
+  get_manufactured_source(double r, double t);
+private:
+  double t;
+  SmartPointer<const Coefficients> p_coefficients;
+};
 
+//template <int dim>
+Coefficients::value_type 
+ManufacturedSolution::get_manufactured_source(double r, double t) 
+{
 
+   const auto &manufactured_solution_rhs =
+   p_coefficients->manufactured_solution_rhs;
+   const auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
+   return value;
+}
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
@@ -283,9 +306,6 @@ public:
   void setup();
   void assemble();
   void setup_constraints();
-
-  Coefficients::value_type
-  get_manufactured_source(const double r, const double t);
 
   DoFHandler<dim> dof_handler;
   SparsityPattern sparsity_pattern;
@@ -349,20 +369,6 @@ void OfflineData<dim>::setup_constraints()
 }
 
 template <int dim>
-Coefficients::value_type
-OfflineData<dim>::get_manufactured_source(double r, const double t)
-{
-  //std::cout << "OfflineData<dim>::get_manufactured_source()" << std::endl;
-
-  const auto &manufactured_solution_rhs =
-      p_coefficients->manufactured_solution_rhs;
-  const auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
-
-  return value;
-}
-
-
-template <int dim>
 void OfflineData<dim>::assemble()
 {
   std::cout << "OfflineData<dim>::assemble_system()" << std::endl;
@@ -395,6 +401,7 @@ void OfflineData<dim>::assemble()
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
   const unsigned int n_q_points = quadrature.size();
+  ManufacturedSolution manufactured;
 
   for (auto cell : dof_handler.active_cell_iterators()) {
 
@@ -422,7 +429,7 @@ void OfflineData<dim>::assemble()
       const auto d = p_coefficients->d(r);
 
       const auto JxW = fe_values.JxW(q_point);
-      const auto source = get_manufactured_source(r, 0); 
+      const auto source = manufactured.get_manufactured_source(r, 0); 
 
 
       // index i for test space, index j for ansatz space
@@ -471,7 +478,6 @@ void OfflineData<dim>::assemble()
                                        cell_stiffness_matrix);
   } // cell
 }
-
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
@@ -678,11 +684,11 @@ void TimeLoop<dim>::run()
   const auto &mapping = discretization.mapping();
   const auto &dof_handler = offline_data.dof_handler;
 
+  ManufacturedSolution manufactured;
   Vector<double> solution;
   solution.reinit(dof_handler.n_dofs());
 
   const double kappa = time_step.kappa;
-
 
   unsigned int n = 0;
   double t = 0;
@@ -692,7 +698,6 @@ void TimeLoop<dim>::run()
 
     if (n == 0) {
       std::cout << "    interpolate initial values" << std::endl;
-
       /* interpolate initial conditions: */
 
       const auto &initial_values = coefficients.initial_values;
@@ -707,13 +712,11 @@ void TimeLoop<dim>::run()
         else
           return value.imag();
       };
-
       VectorTools::interpolate(mapping,
                                dof_handler,
                                to_function<dim, /*components*/ 2>(lambda),
                                solution);
     } else {
-
       time_step.step(solution, t);
 
     }
@@ -739,7 +742,8 @@ void TimeLoop<dim>::run()
 
     n += 1;
     t += kappa;
-
+    manufactured.set_time(t);
+    
   } /* for */
 }
 
@@ -754,6 +758,7 @@ int main()
 
   Coefficients coefficients;
   Discretization<dim> discretization(coefficients);
+  ManufacturedSolution manufactured;
   OfflineData<dim> offline_data(coefficients, discretization);
   TimeStep<dim> time_step(offline_data);
   TimeLoop<dim> time_loop(time_step);
