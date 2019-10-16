@@ -108,7 +108,7 @@ public:
 	return std::sin(coef1 * r);
         //return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
     };
-
+    /*Boundary values resulting from manufactured solution*/
     boundary_values = [&](double r, double t) {
        //return 0.;
        if (r == R_0)
@@ -267,18 +267,20 @@ public:
   }
   Coefficients::value_type
   get_manufactured_source(double r, double t);
+
+  Coefficients::value_type
+  boundary_values(double r, double t);
 private:
   double t;
-  SmartPointer<const Coefficients> p_coefficients;
 };
 
 //template <int dim>
 Coefficients::value_type 
 ManufacturedSolution::get_manufactured_source(double r, double t) 
 {
+   Coefficients coefficients;
 
-   const auto &manufactured_solution_rhs =
-   p_coefficients->manufactured_solution_rhs;
+   const auto &manufactured_solution_rhs = coefficients.manufactured_solution_rhs;
    const auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
    return value;
 }
@@ -359,8 +361,34 @@ void OfflineData<dim>::setup_constraints()
 {
   std::cout << "OfflineData<dim>::setup_constraints()" << std::endl;
   affine_constraints.clear();
-  const auto &boundary_values = 
-      p_coefficients->boundary_values;
+  //ManufacturedSolution manufactured;
+  //const auto &boundary_values = 
+    //  p_coefficients->boundary_values;
+ // std::map<types::global_dof_index, double> boundary_value_map;
+  //manufactured.set_time(new_t);
+  /*const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
+    Assert(component <= 1, ExcMessage("need exactly two components"));*/
+    
+    //const auto value = boundary_values(/* r = */ p[0], /* t = */ new_t);
+
+   /* if (component == 0)
+      return value.real();
+    else
+      return value.imag();
+  };*/
+
+ // const auto boundary_value_function =
+   //   to_function<dim, /*components*/ 2>(lambda);
+
+  /*VectorTools::interpolate_boundary_values(
+      mapping,
+      dof_handler,
+      {{1, &boundary_value_function}},
+      boundary_value_map);
+
+  for (auto it : boundary_value_map) {
+    vector[it.first] = it.second;
+  }*/
   VectorTools::interpolate_boundary_values(
       dof_handler, 1, ZeroFunction<dim>(2), affine_constraints);
   DoFTools::make_hanging_node_constraints(dof_handler, affine_constraints);
@@ -429,7 +457,7 @@ void OfflineData<dim>::assemble()
       const auto d = p_coefficients->d(r);
 
       const auto JxW = fe_values.JxW(q_point);
-      const auto source = manufactured.get_manufactured_source(r, 0); 
+      const auto source = manufactured.get_manufactured_source(r, 0.); 
 
 
       // index i for test space, index j for ansatz space
@@ -739,11 +767,11 @@ void TimeLoop<dim>::run()
         data_out.write_vtk(output);
       }
     }
-
     n += 1;
     t += kappa;
     manufactured.set_time(t);
     
+    //std::cout<<"source at next time"<<manufactured.get_manufactured_source(1, t) <<std::endl;
   } /* for */
 }
 
@@ -758,7 +786,7 @@ int main()
 
   Coefficients coefficients;
   Discretization<dim> discretization(coefficients);
-  ManufacturedSolution manufactured;
+  //ManufacturedSolution manufactured;
   OfflineData<dim> offline_data(coefficients, discretization);
   TimeStep<dim> time_step(offline_data);
   TimeLoop<dim> time_loop(time_step);
