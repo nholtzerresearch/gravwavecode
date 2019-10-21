@@ -293,9 +293,10 @@ class OfflineData : public Subscriptor
 {
 public:
   OfflineData(const Coefficients &coefficients,
-              const Discretization<dim> &discretization)
+              const Discretization<dim> &discretization, const ManufacturedSolution &get_manufactured_source)
       : p_coefficients(&coefficients)
       , p_discretization(&discretization)
+      , p_manufactured(&get_manufactured_source)
   {
   }
 
@@ -324,6 +325,7 @@ public:
 
   SmartPointer<const Coefficients> p_coefficients;
   SmartPointer<const Discretization<dim>> p_discretization;
+  SmartPointer<const ManufacturedSolution> p_manufactured;
 };
 
 
@@ -410,6 +412,7 @@ void OfflineData<dim>::assemble()
   const auto &mapping = p_discretization->mapping();
   const auto &finite_element = p_discretization->finite_element();
   const auto &quadrature = p_discretization->quadrature();
+  
 
   const unsigned int dofs_per_cell = finite_element.dofs_per_cell;
 
@@ -429,7 +432,7 @@ void OfflineData<dim>::assemble()
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
   const unsigned int n_q_points = quadrature.size();
-  ManufacturedSolution manufactured;
+  //ManufacturedSolution manufactured;
 
   for (auto cell : dof_handler.active_cell_iterators()) {
 
@@ -457,7 +460,7 @@ void OfflineData<dim>::assemble()
       const auto d = p_coefficients->d(r);
 
       const auto JxW = fe_values.JxW(q_point);
-      const auto source = manufactured.get_manufactured_source(r, 0.); 
+      const auto source = p_manufactured.get_manufactured_source(r, t); 
 
 
       // index i for test space, index j for ansatz space
@@ -770,7 +773,8 @@ void TimeLoop<dim>::run()
     n += 1;
     t += kappa;
     manufactured.set_time(t);
-    
+    offline_data.prepare(); 
+    time_step.prepare();
     //std::cout<<"source at next time"<<manufactured.get_manufactured_source(1, t) <<std::endl;
   } /* for */
 }
@@ -786,14 +790,14 @@ int main()
 
   Coefficients coefficients;
   Discretization<dim> discretization(coefficients);
-  //ManufacturedSolution manufactured;
-  OfflineData<dim> offline_data(coefficients, discretization);
+  ManufacturedSolution manufactured;
+  OfflineData<dim> offline_data(coefficients, discretization, manufactured);
   TimeStep<dim> time_step(offline_data);
   TimeLoop<dim> time_loop(time_step);
   ParameterAcceptor::initialize("gravwave.prm");
 
-  offline_data.prepare();
-  time_step.prepare();
+  //offline_data.prepare();
+  //time_step.prepare();
 
   time_loop.run();
 
