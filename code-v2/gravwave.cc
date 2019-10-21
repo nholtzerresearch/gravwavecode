@@ -258,6 +258,7 @@ private:
   unsigned int order_quadrature;
 };
 /*----------------------------------------------------------------------------*//*----------------------------------------------------------------------------*/
+/*template <int dim>
 class ManufacturedSolution
 {
 public:
@@ -274,9 +275,64 @@ private:
   double t;
 };
 
-//template <int dim>
+template <int dim>
 Coefficients::value_type 
 ManufacturedSolution::get_manufactured_source(double r, double t) 
+{
+   Coefficients coefficients;
+
+   const auto &manufactured_solution_rhs = coefficients.manufactured_solution_rhs;*/
+  // const auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
+  // return value;
+//}
+
+template <int dim>
+class ManufacturedSolution : public Subscriptor
+{
+public:
+  ManufacturedSolution(const Coefficients &coefficients,
+              const Discretization<dim> &discretization)
+      : p_coefficients(&coefficients)
+      , p_discretization(&discretization)
+     
+  {
+  }
+
+  void set_time(double new_t)
+  {
+    t=new_t;
+  }
+
+  Coefficients::value_type
+  get_manufactured_source(double r, double t);
+
+  void prepare()
+  {
+    setup();
+    assemble();
+  }
+
+  void setup();
+  void assemble();
+
+  DoFHandler<dim> dof_handler;
+  SparsityPattern sparsity_pattern;
+
+  AffineConstraints<double> affine_constraints;
+
+  Vector<double> right_hand_side;
+
+
+  SmartPointer<const Coefficients> p_coefficients;
+  SmartPointer<const Discretization<dim>> p_discretization;
+private:
+  double t; 
+};
+
+
+template <int dim>
+Coefficients::value_type 
+ManufacturedSolution<dim>::get_manufactured_source(double r, double t) 
 {
    Coefficients coefficients;
 
@@ -284,6 +340,112 @@ ManufacturedSolution::get_manufactured_source(double r, double t)
    const auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
    return value;
 }
+template <int dim>
+void ManufacturedSolution<dim>::setup()
+{
+  std::cout << "ManufacturedSolution<dim>::setup_right_hand_side()" << std::endl;
+
+  const auto &triangulation = p_discretization->triangulation();
+  const auto &finite_element = p_discretization->finite_element();
+
+  dof_handler.initialize(triangulation, finite_element);
+  DoFRenumbering::Cuthill_McKee(dof_handler);
+  //setup_constraints();
+
+  DynamicSparsityPattern c_sparsity(dof_handler.n_dofs(), dof_handler.n_dofs());
+  DoFTools::make_sparsity_pattern(
+      dof_handler, c_sparsity, affine_constraints, true);
+
+  sparsity_pattern.copy_from(c_sparsity);
+
+  right_hand_side.reinit(dof_handler.n_dofs());
+}
+
+template <int dim>
+void ManufacturedSolution<dim>::assemble()
+{
+  std::cout << "ManufacturedSolution<dim>::assemble_right_hand_side()" << std::endl;
+
+  right_hand_side = 0.;
+
+  const auto &mapping = p_discretization->mapping();
+  const auto &finite_element = p_discretization->finite_element();
+  const auto &quadrature = p_discretization->quadrature();
+  
+
+  const unsigned int dofs_per_cell = finite_element.dofs_per_cell;
+
+  Vector<double> cell_right_hand_side(dofs_per_cell);
+
+  FEValues<dim> fe_values(mapping,
+                          finite_element,
+                          quadrature,
+                          update_values | update_gradients |
+                              update_quadrature_points | update_JxW_values);
+
+  FEValuesViews::Scalar<dim> real_part(fe_values, 0);
+  FEValuesViews::Scalar<dim> imag_part(fe_values, 1);
+
+  std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
+
+  const unsigned int n_q_points = quadrature.size();
+
+  for (auto cell : dof_handler.active_cell_iterators()) {
+
+    cell_right_hand_side = 0;
+
+    fe_values.reinit(cell);
+    cell->get_dof_indices(local_dof_indices);
+
+    const auto &quadrature_points = fe_values.get_quadrature_points();
+
+    const auto imag = Coefficients::imag;
+    const auto rot_x = 1.;
+    const auto rot_y = -imag;
+
+    for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
+
+      const auto position = quadrature_points[q_point];
+      const auto r = position[0];
+
+      const auto JxW = fe_values.JxW(q_point);
+      const auto source = get_manufactured_source(r, t); 
+
+
+      // index i for test space, index j for ansatz space
+      for (unsigned int i = 0; i < dofs_per_cell; ++i) {
+
+        const auto value_i = rot_x * real_part.value(i, q_point) +
+                             rot_y * imag_part.value(i, q_point);
+
+        const auto rhs_vec =
+              source * value_i * JxW;
+          cell_right_hand_side(i) += rhs_vec.real();
+
+      }   // for i
+    }     // for q_point
+
+
+    affine_constraints.distribute_local_to_global(
+        cell_right_hand_side, local_dof_indices, right_hand_side);
+
+   /* mass_matrix_unconstrained.add(local_dof_indices, cell_mass_matrix);
+
+    affine_constraints.distribute_local_to_global(
+        cell_stiffness_matrix, local_dof_indices, stiffness_matrix);
+
+    stiffness_matrix_unconstrained.add(local_dof_indices,
+                                       cell_stiffness_matrix);*/
+  } // cell
+
+    std::cout<<"rhs:( "<<right_hand_side(0)<<")"<<std::endl;
+}
+
+
+
+
+
+
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 
@@ -293,10 +455,10 @@ class OfflineData : public Subscriptor
 {
 public:
   OfflineData(const Coefficients &coefficients,
-              const Discretization<dim> &discretization, const ManufacturedSolution &get_manufactured_source)
+              const Discretization<dim> &discretization)
       : p_coefficients(&coefficients)
       , p_discretization(&discretization)
-      , p_manufactured(&get_manufactured_source)
+     
   {
   }
 
@@ -325,7 +487,6 @@ public:
 
   SmartPointer<const Coefficients> p_coefficients;
   SmartPointer<const Discretization<dim>> p_discretization;
-  SmartPointer<const ManufacturedSolution> p_manufactured;
 };
 
 
@@ -363,34 +524,6 @@ void OfflineData<dim>::setup_constraints()
 {
   std::cout << "OfflineData<dim>::setup_constraints()" << std::endl;
   affine_constraints.clear();
-  //ManufacturedSolution manufactured;
-  //const auto &boundary_values = 
-    //  p_coefficients->boundary_values;
- // std::map<types::global_dof_index, double> boundary_value_map;
-  //manufactured.set_time(new_t);
-  /*const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
-    Assert(component <= 1, ExcMessage("need exactly two components"));*/
-    
-    //const auto value = boundary_values(/* r = */ p[0], /* t = */ new_t);
-
-   /* if (component == 0)
-      return value.real();
-    else
-      return value.imag();
-  };*/
-
- // const auto boundary_value_function =
-   //   to_function<dim, /*components*/ 2>(lambda);
-
-  /*VectorTools::interpolate_boundary_values(
-      mapping,
-      dof_handler,
-      {{1, &boundary_value_function}},
-      boundary_value_map);
-
-  for (auto it : boundary_value_map) {
-    vector[it.first] = it.second;
-  }*/
   VectorTools::interpolate_boundary_values(
       dof_handler, 1, ZeroFunction<dim>(2), affine_constraints);
   DoFTools::make_hanging_node_constraints(dof_handler, affine_constraints);
@@ -460,7 +593,7 @@ void OfflineData<dim>::assemble()
       const auto d = p_coefficients->d(r);
 
       const auto JxW = fe_values.JxW(q_point);
-      const auto source = p_manufactured.get_manufactured_source(r, t); 
+     // const auto source = get_manufactured_source(r, t); 
 
 
       // index i for test space, index j for ansatz space
@@ -488,7 +621,7 @@ void OfflineData<dim>::assemble()
 
           const auto stiffness_term =
               (a * value_i - b * grad_i[0]) * grad_j[0] * JxW +
-              d * value_i * value_j * JxW - source * value_i * JxW;
+              d * value_i * value_j * JxW;// - source * value_i * JxW;
           cell_stiffness_matrix(i, j) += stiffness_term.real();
 
         } // for j
@@ -517,9 +650,10 @@ template <int dim>
 class TimeStep : public ParameterAcceptor
 {
 public:
-  TimeStep(const OfflineData<dim> &offline_data)
+  TimeStep(const OfflineData<dim> &offline_data, const ManufacturedSolution<dim> &manufactured)
       : ParameterAcceptor("C - TimeStep")
       , p_offline_data(&offline_data)
+      , p_manufactured(&manufactured)
   {
     kappa = 0.1;
     add_parameter("kappa", kappa, "time step size");
@@ -546,6 +680,7 @@ public:
   void step(Vector<double> &old_solution, double new_t) const;
 
   SmartPointer<const OfflineData<dim>> p_offline_data;
+  SmartPointer<const ManufacturedSolution<dim>> p_manufactured;
   double kappa;
   double theta;
 
@@ -565,6 +700,7 @@ void TimeStep<dim>::prepare()
 {
   std::cout << "TimeStep<dim>::prepare()" << std::endl;
   const auto &offline_data = *p_offline_data;
+  const auto &manufactured = *p_manufactured;
 
   linear_part.reinit(offline_data.sparsity_pattern);
   const auto &M_c = offline_data.mass_matrix;
@@ -623,6 +759,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
   const auto &offline_data = *p_offline_data;
   const auto &coefficients = *offline_data.p_coefficients;
   const auto &affine_constraints = offline_data.affine_constraints;
+  const auto &manufactured = *p_manufactured;
 
   const auto M_c = linear_operator(offline_data.mass_matrix);
   const auto S_c = linear_operator(offline_data.stiffness_matrix);
@@ -715,7 +852,7 @@ void TimeLoop<dim>::run()
   const auto &mapping = discretization.mapping();
   const auto &dof_handler = offline_data.dof_handler;
 
-  ManufacturedSolution manufactured;
+  //ManufacturedSolution manufactured;
   Vector<double> solution;
   solution.reinit(dof_handler.n_dofs());
 
@@ -772,9 +909,9 @@ void TimeLoop<dim>::run()
     }
     n += 1;
     t += kappa;
-    manufactured.set_time(t);
-    offline_data.prepare(); 
-    time_step.prepare();
+    //manufactured.set_time(t);
+    //offline_data.prepare(); 
+   // time_step.prepare();
     //std::cout<<"source at next time"<<manufactured.get_manufactured_source(1, t) <<std::endl;
   } /* for */
 }
@@ -790,14 +927,14 @@ int main()
 
   Coefficients coefficients;
   Discretization<dim> discretization(coefficients);
-  ManufacturedSolution manufactured;
-  OfflineData<dim> offline_data(coefficients, discretization, manufactured);
-  TimeStep<dim> time_step(offline_data);
+  ManufacturedSolution<dim> manufactured(coefficients, discretization);
+  OfflineData<dim> offline_data(coefficients, discretization);
+  TimeStep<dim> time_step(offline_data, manufactured);
   TimeLoop<dim> time_loop(time_step);
   ParameterAcceptor::initialize("gravwave.prm");
-
-  //offline_data.prepare();
-  //time_step.prepare();
+  manufactured.prepare();
+  offline_data.prepare();
+  time_step.prepare();
 
   time_loop.run();
 
