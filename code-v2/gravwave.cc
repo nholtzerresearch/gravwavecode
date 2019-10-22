@@ -258,33 +258,6 @@ private:
   unsigned int order_quadrature;
 };
 /*----------------------------------------------------------------------------*//*----------------------------------------------------------------------------*/
-/*template <int dim>
-class ManufacturedSolution
-{
-public:
-  void set_time(double new_t)
-  {
-    t=new_t;
-  }
-  Coefficients::value_type
-  get_manufactured_source(double r, double t);
-
-  Coefficients::value_type
-  boundary_values(double r, double t);
-private:
-  double t;
-};
-
-template <int dim>
-Coefficients::value_type 
-ManufacturedSolution::get_manufactured_source(double r, double t) 
-{
-   Coefficients coefficients;
-
-   const auto &manufactured_solution_rhs = coefficients.manufactured_solution_rhs;*/
-  // const auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
-  // return value;
-//}
 
 template <int dim>
 class ManufacturedSolution : public Subscriptor
@@ -298,7 +271,7 @@ public:
   {
   }
 
-  void set_time(double new_t)
+  void set_time(double new_t) 
   {
     t=new_t;
   }
@@ -336,8 +309,8 @@ ManufacturedSolution<dim>::get_manufactured_source(double r, double t)
 {
    Coefficients coefficients;
 
-   const auto &manufactured_solution_rhs = coefficients.manufactured_solution_rhs;
-   const auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
+   auto &manufactured_solution_rhs = coefficients.manufactured_solution_rhs;
+   auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
    return value;
 }
 template <int dim>
@@ -565,7 +538,6 @@ void OfflineData<dim>::assemble()
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
   const unsigned int n_q_points = quadrature.size();
-  //ManufacturedSolution manufactured;
 
   for (auto cell : dof_handler.active_cell_iterators()) {
 
@@ -593,8 +565,6 @@ void OfflineData<dim>::assemble()
       const auto d = p_coefficients->d(r);
 
       const auto JxW = fe_values.JxW(q_point);
-     // const auto source = get_manufactured_source(r, t); 
-
 
       // index i for test space, index j for ansatz space
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
@@ -650,7 +620,7 @@ template <int dim>
 class TimeStep : public ParameterAcceptor
 {
 public:
-  TimeStep(const OfflineData<dim> &offline_data, const ManufacturedSolution<dim> &manufactured)
+  TimeStep(const OfflineData<dim> &offline_data, ManufacturedSolution<dim> &manufactured)
       : ParameterAcceptor("C - TimeStep")
       , p_offline_data(&offline_data)
       , p_manufactured(&manufactured)
@@ -680,7 +650,7 @@ public:
   void step(Vector<double> &old_solution, double new_t) const;
 
   SmartPointer<const OfflineData<dim>> p_offline_data;
-  SmartPointer<const ManufacturedSolution<dim>> p_manufactured;
+  SmartPointer<ManufacturedSolution<dim>> p_manufactured;
   double kappa;
   double theta;
 
@@ -759,7 +729,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
   const auto &offline_data = *p_offline_data;
   const auto &coefficients = *offline_data.p_coefficients;
   const auto &affine_constraints = offline_data.affine_constraints;
-  const auto &manufactured = *p_manufactured;
+  auto &manufactured = *p_manufactured;
 
   const auto M_c = linear_operator(offline_data.mass_matrix);
   const auto S_c = linear_operator(offline_data.stiffness_matrix);
@@ -772,11 +742,13 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
 
   new_solution = old_solution;
   apply_boundary_values(offline_data, coefficients, new_t, new_solution);
+  manufactured.set_time(new_t);
+  manufactured.prepare();
 
   for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
     Vector<double> residual = M_u * (new_solution - old_solution) +
                               kappa * (1. - theta) * S_u * new_solution +
-                              theta * kappa * S_u * old_solution;
+                              theta * kappa * S_u * old_solution + manufactured.right_hand_side;
     affine_constraints.set_zero(residual);
 
     if (residual.linfty_norm() < nonlinear_solver_tol)
@@ -799,7 +771,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
   {
     Vector<double> residual = M_u * (new_solution - old_solution) +
                               kappa * (1. - theta) * S_u * new_solution +
-                              theta * kappa * S_u * old_solution;
+                              theta * kappa * S_u * old_solution + manufactured.right_hand_side;
     affine_constraints.set_zero(residual);
     std::cout<<"norm of residual: "<<residual.linfty_norm()<<std::endl;
     if (residual.linfty_norm() > nonlinear_solver_tol)
@@ -852,7 +824,6 @@ void TimeLoop<dim>::run()
   const auto &mapping = discretization.mapping();
   const auto &dof_handler = offline_data.dof_handler;
 
-  //ManufacturedSolution manufactured;
   Vector<double> solution;
   solution.reinit(dof_handler.n_dofs());
 
@@ -909,10 +880,6 @@ void TimeLoop<dim>::run()
     }
     n += 1;
     t += kappa;
-    //manufactured.set_time(t);
-    //offline_data.prepare(); 
-   // time_step.prepare();
-    //std::cout<<"source at next time"<<manufactured.get_manufactured_source(1, t) <<std::endl;
   } /* for */
 }
 
