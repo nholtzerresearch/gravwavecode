@@ -278,6 +278,7 @@ public:
 
   Coefficients::value_type
   get_manufactured_source(double r, double t);
+  
 
   void prepare()
   {
@@ -313,6 +314,7 @@ ManufacturedSolution<dim>::get_manufactured_source(double r, double t)
    auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
    return value;
 }
+
 template <int dim>
 void ManufacturedSolution<dim>::setup()
 {
@@ -323,7 +325,7 @@ void ManufacturedSolution<dim>::setup()
 
   dof_handler.initialize(triangulation, finite_element);
   DoFRenumbering::Cuthill_McKee(dof_handler);
-  //setup_constraints();
+ // setup_constraints();
 
   DynamicSparsityPattern c_sparsity(dof_handler.n_dofs(), dof_handler.n_dofs());
   DoFTools::make_sparsity_pattern(
@@ -435,6 +437,10 @@ public:
   {
   }
 
+  void set_time(double new_t) 
+  {
+    t=new_t;
+  }
   void prepare()
   {
     setup();
@@ -460,6 +466,8 @@ public:
 
   SmartPointer<const Coefficients> p_coefficients;
   SmartPointer<const Discretization<dim>> p_discretization;
+private:
+  double t;
 };
 
 
@@ -495,10 +503,36 @@ void OfflineData<dim>::setup()
 template <int dim>
 void OfflineData<dim>::setup_constraints()
 {
+
   std::cout << "OfflineData<dim>::setup_constraints()" << std::endl;
   affine_constraints.clear();
+
+  const auto &mapping = p_discretization->mapping();
+  Coefficients coefficients;
+  const auto &boundary_values = coefficients.boundary_values;
+  std::map<types::global_dof_index, double> boundary_value_map;
+
+  const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
+    Assert(component <= 1, ExcMessage("need exactly two components"));
+
+    const auto value = boundary_values(/* r = */ p[0], /* t = */ t);
+
+    if (component == 0)
+      return value.real();
+    else
+      return value.imag();
+  };
+
+  const auto boundary_value_function =
+      to_function<dim, /*components*/ 2>(lambda);
+
   VectorTools::interpolate_boundary_values(
-      dof_handler, 1, ZeroFunction<dim>(2), affine_constraints);
+      mapping,
+      dof_handler,
+      {{1, &boundary_value_function}},
+      boundary_value_map);
+  //VectorTools::interpolate_boundary_values(
+  //    dof_handler, 1, ZeroFunction<dim>(2), affine_constraints);
   DoFTools::make_hanging_node_constraints(dof_handler, affine_constraints);
 
   affine_constraints.close();
@@ -670,7 +704,7 @@ void TimeStep<dim>::prepare()
 {
   std::cout << "TimeStep<dim>::prepare()" << std::endl;
   const auto &offline_data = *p_offline_data;
-  const auto &manufactured = *p_manufactured;
+  //const auto &manufactured = *p_manufactured;
 
   linear_part.reinit(offline_data.sparsity_pattern);
   const auto &M_c = offline_data.mass_matrix;
