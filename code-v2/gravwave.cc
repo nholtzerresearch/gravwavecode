@@ -93,29 +93,35 @@ public:
 
     //a = [&](double r) { return f_prime(r) + 2.*(f(r)-imag * q * Q + 1.) / r; };
     //a = [&](double r) { return g(r) + 2. / r - f_prime(r); };
-    a = [&](double r) { return 0.; }; //'a' coef for simple diff prob
-   // b = [&](double r) { return 2. + f(r); };
-    b = [&](double r) { return 0.001;}; 
+    a = [&](double r) { return 1.; }; //'a' 0.: coef for simple diff prob
+    //b = [&](double r) { return 2. + f(r); };
+    b = [&](double r) { return -1.;}; 
     //c = [&](double r) { return 2. / r; };
     c = [&](double r) { return 1.;};
-    d = [&](double r) { return imag * q * Q / (r * r); };
+    d = [&](double r) { return 1.;};
+    //d = [&](double r) { return imag * q * Q / (r * r); };
 
     initial_values = [&](double r) {
      // double foobar = 0.1 * (R_1 - R_0) + R_0;
      // if (r > foobar)
      //   return 0.;
      // else
-	return std::sin(coef1 * r);
+	//return std::sin(coef1 * r);
+	return std::exp(-(r-((R_0+R_1)/2.))*(r - ((R_0+R_1)/2.))/ (.5));//works for diffusion
+	//return -(r * r) + (R_0 + R_1) * r - (R_0 * R_1);
         //return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
     };
     /*Boundary values resulting from manufactured solution*/
     boundary_values = [&](double r, double t) {
        //return 0.;
        if (r == R_0)
-	 return std::sin(coef1 * R_0 - coef2 * t);
+	 //return std::sin(coef1 * R_0 - coef2 * t);
+	 return 0.;
        if (r == R_1)
-	 return std::sin(coef1 * R_1 - coef2 * t); 
-       else
+	 //return std::sin(coef1 * R_1 - coef2 * t); 
+	// return std::sin(R_1);
+      /* else
+	 return 0.;*/
 	 return 0.;
     };
 
@@ -124,8 +130,9 @@ public:
       /*return (r * (-2. * coef2 + coef1 * (2. + g(r) * r)) * 
 	     std::cos(coef1 * r - coef2 * t) + 
 	     (imag * q * Q - coef1 * (-2. * coef2 + coef1 * (2. + f(r))) 	     * (r * r)) * std::sin(coef1 * r - coef2 * t)) / (r * r);*/
-	return (-coef2 * std::cos(coef1 * r - coef2 * t)) 
-		- (coef1 * coef1) * std::sin(coef1 * r - coef2 * t); 	    
+	/*return (-coef2 * std::cos(coef1 * r - coef2 * t)) 
+		- (coef1 * coef1) * std::sin(coef1 * r - coef2 * t)*/;//diffusion man solution  	    
+	return 0.;
     };
   }
 
@@ -622,17 +629,17 @@ void OfflineData<dim>::assemble()
           const auto nodal_mass_term = value_i * value_j * JxW;
           cell_nodal_mass_matrix(i, j) += nodal_mass_term.real();
 
-          //const auto mass_term = (c * value_i - 2. * grad_i[0]) * value_j * JxW;
-          //cell_mass_matrix(i, j) += mass_term.real();
-	  const auto mass_term = (c * value_i) * value_j * JxW;//mass for diff prob.  
+          const auto mass_term = (c * value_i - 2. * grad_i[0]) * value_j * JxW;
+	  //const auto mass_term = (c * value_i) * value_j * JxW;//mass for diff prob.  
           cell_mass_matrix(i, j) += mass_term.real();
 
-         /* const auto stiffness_term =
+          const auto stiffness_term =
               (a * value_i - b * grad_i[0]) * grad_j[0] * JxW +
-              d * value_i * value_j * JxW;
-          cell_stiffness_matrix(i, j) += stiffness_term.real();*/
-	  const auto stiffness_term = 
-	      (- b * grad_i[0]) * grad_j[0] * JxW;//diffusion prob
+              d * value_i * value_j * JxW;//full term
+	  /*const auto stiffness_term = 
+	      (- b * grad_i[0]) * grad_j[0] * JxW;*///diffusion prob
+	  /*const auto stiffness_term =
+	    (a * value_i - b * grad_i[0]) * grad_j[0] * JxW;*/ //adv-diff
 	  cell_stiffness_matrix(i,j) += stiffness_term.real();
         } // for j
       }   // for i
@@ -788,7 +795,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
   for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
     Vector<double> residual = M_u * (new_solution - old_solution) +
                               kappa * (1. - theta) * S_u * new_solution +
-                              theta * kappa * S_u * old_solution + manufactured.right_hand_side;
+                              theta * kappa * S_u * old_solution;// + manufactured.right_hand_side;
     affine_constraints.set_zero(residual);
 
     if (residual.linfty_norm() < nonlinear_solver_tol)
@@ -811,7 +818,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
   {
     Vector<double> residual = M_u * (new_solution - old_solution) +
                               kappa * (1. - theta) * S_u * new_solution +
-                              theta * kappa * S_u * old_solution + manufactured.right_hand_side;
+                              theta * kappa * S_u * old_solution;// + manufactured.right_hand_side;
     affine_constraints.set_zero(residual);
     std::cout<<"norm of residual: "<<residual.linfty_norm()<<std::endl;
     if (residual.linfty_norm() > nonlinear_solver_tol)
@@ -909,10 +916,10 @@ void TimeLoop<dim>::run()
 
       std::string name = basename + "-" + std::to_string(n);
 
-      {
+      /*{
         std::ofstream output(name + std::string(".gnuplot"));
         data_out.write_gnuplot(output);
-      }
+      }*/
       {
         std::ofstream output(name + std::string(".vtk"));
         data_out.write_vtk(output);
