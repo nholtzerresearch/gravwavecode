@@ -1,0 +1,51 @@
+1) workingdiffusion.mp4
+
+Ensures the code could sove the very basic diffusion equation.
+
+c*Psi_t=b*Psi_rr
+Psi(r_0, t)=Psi(r_1, t)=0
+Psi(r,0)=exp(-(r-(r_0+r_1)/2)^2 /.5)
+refinement = 5 
+kappa = .1
+theta =0. for implicit euler
+r_0 = .09, r_1 =5
+b = -1, c=1
+
+2) advdiff1.mp4, advdiff2.mp4, advdiff3.mp4, advdiff4.mp4
+
+Added in advection term.
+c*Psi_t=b*Psi_rr + a*Psi_r
+Psi(r_0, t)=Psi(r_1, t)=0
+Psi(r,0)=exp(-(r-(r_0+r_1)/2)^2 /.5)
+refinement = 5 
+kappa = .1
+theta =0. for implicit euler
+r_0 = .09, r_1 =5
+advdiff1(a=1, b=-1, c=1), advdiff2(a=-1, b=-1, c=1), advdiff3(a=1, b=-.01, c=1)
+advdiff4(a=.01, b=-1, c=1)
+
+3) advdiffpsi.mp4
+ 
+Added in Psi term.
+
+c*Psi_t=b*Psi_rr + a*Psi_r + d*Psi
+
+Psi(r_0, t)=Psi(r_1, t)=0
+Psi(r,0)=exp(-(r-(r_0+r_1)/2)^2 /.5)
+refinement = 5 
+kappa = .1
+theta =0. for implicit euler
+r_0 = .09, r_1 =5
+a=1, b=-1, c=1, d=1
+
+4) fullpdenocoef.mp4
+
+c*Psi_t-2*Psi_tr=b*Psi_rr + a*Psi_r + d*Psi
+
+Psi(r_0, t)=Psi(r_1, t)=0
+Psi(r,0)=exp(-(r-(r_0+r_1)/2)^2 /.5)
+refinement = 5 
+kappa = .1
+theta =0. for implicit euler
+r_0 = .09, r_1 =5
+a=1, b=-1, c=1, d=1
