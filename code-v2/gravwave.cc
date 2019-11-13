@@ -92,14 +92,16 @@ public:
     };
 
     //a = [&](double r) { return f_prime(r) + 2.*(f(r)-imag * q * Q + 1.) / r; };
-    //a = [&](double r) { return g(r) + 2. / r - f_prime(r); };
-    a = [&](double r) { return 1.; }; //'a' 0.: coef for simple diff prob
-    //b = [&](double r) { return 2. + f(r); };
-    b = [&](double r) { return -1.;}; 
-    //c = [&](double r) { return 2. / r; };
-    c = [&](double r) { return 1.;};
-    d = [&](double r) { return 1.;};
-    //d = [&](double r) { return imag * q * Q / (r * r); };
+    a = [&](double r) { return g(r) + 2. / r - f_prime(r); };//old a
+    //a = [&](double r) { return g(r) - 2./ r - f_prime(r);}; //new a
+    //a = [&](double r) { return 1.; }; //'a' 0.: coef for simple diff prob
+    b = [&](double r) { return 2. + f(r); };//old b
+    //b = [&](double r) { return 2. - f(r); };//new b
+    //b = [&](double r) { return -1.;}; 
+    c = [&](double r) { return 2. / r; };
+    //c = [&](double r) { return 1.;};
+    //d = [&](double r) { return 1.;};
+    d = [&](double r) { return imag * q * Q / (r * r); };
 
     initial_values = [&](double r) {
      // double foobar = 0.1 * (R_1 - R_0) + R_0;
@@ -107,7 +109,7 @@ public:
      //   return 0.;
      // else
 	//return std::sin(coef1 * r);
-	return std::exp(-(r-((R_0+R_1)/2.))*(r - ((R_0+R_1)/2.))/ (.5));//works for diffusion
+	return std::exp(-(r-((R_0+R_1)/2.))*(r - ((R_0+R_1)/2.))/ (.06));//works for diffusion
 	//return -(r * r) + (R_0 + R_1) * r - (R_0 * R_1);
         //return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
     };

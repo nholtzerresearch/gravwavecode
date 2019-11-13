@@ -1,4 +1,4 @@
-1) workingdiffusion.mp4
+1) diffusion.mp4
 
 Ensures the code could sove the very basic diffusion equation.
 
@@ -49,3 +49,45 @@ kappa = .1
 theta =0. for implicit euler
 r_0 = .09, r_1 =5
 a=1, b=-1, c=1, d=1
+
+5) fullpde-coef2.mp4
+
+   Attempted an alternative "final coordinate transformation". Instead of T=v-r,   used T=v+r.
+
+c*Psi_t-2*Psi_tr=b*Psi_rr + a*Psi_r + d*Psi
+
+Psi(r_0, t)=Psi(r_1, t)=0
+Psi(r,0)=exp(-(r-(r_0+r_1)/2)^2 /.06)
+M=1
+Q=0.5
+refinement = 5 
+kappa = .1
+theta =0.4 
+r_0 = 1.9, r_1 =5
+a=g-2/r-f', b=2-f, c=2/r, d=iqQ/r^2
+
+
+
+6) fullpde-coef2atr.png
+   From (5), at r=R_0
+
+7) fullpde-coef1.mp4
+   Return to original coordinte transformation. 
+c*Psi_t-2*Psi_tr=b*Psi_rr + a*Psi_r + d*Psi
+
+Psi(r_0, t)=Psi(r_1, t)=0
+Psi(r,0)=exp(-(r-(r_0+r_1)/2)^2 /.06)
+M=1
+Q=0.5
+refinement = 5 
+kappa = .1
+theta =0.4 
+r_0 = 1.9, r_1 =5
+a=g+2/r-f', b=2+f, c=2/r, d=iqQ/r^2
+
+8) fullpde-coef1atr.png
+   From (7), at r=R_0
+
+9) fullpde-coef1atr25ts.png
+   From (7), r=R_0 only first 25 time steps.
+
