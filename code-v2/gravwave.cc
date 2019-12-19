@@ -79,61 +79,58 @@ public:
     coef2 = 1.;
     add_parameter("coef2", coef2, "coefficient on t in the manufactured sol.");
 
-    f = [&](double r) {
+    /*f = [&](double r) {
       return 1. - (2. * M / r) + (Q * Q) / (r * r) + 0. * imag;
-    };
+    };*/
 
-    f_prime = [&](double r) {
+    /*f_prime = [&](double r) {
       return (2. / (r * r)) * (M - ((Q * Q) / r)) + 0. * imag;
     };
 
     g = [&](double r) {
       return 2. * f_prime(r) + 2. * (f(r) + imag * q * Q) / r;
-    };
+    };*/
 
-    //a = [&](double r) { return f_prime(r) + 2.*(f(r)-imag * q * Q + 1.) / r; };
-    a = [&](double r) { return g(r) + 2. / r - f_prime(r); };//old a
-    //a = [&](double r) { return g(r) - 2./ r - f_prime(r);}; //new a
-    //a = [&](double r) { return 1.; }; //'a' 0.: coef for simple diff prob
-    b = [&](double r) { return 2. + f(r); };//old b
-    //b = [&](double r) { return 2. - f(r); };//new b
-    //b = [&](double r) { return -1.;}; 
-    c = [&](double r) { return 2. / r; };
-    //c = [&](double r) { return 1.;};
-    //d = [&](double r) { return 1.;};
-    d = [&](double r) { return imag * q * Q / (r * r); };
-
+    a = [&](double r) {return (-r*r-2.*M*r+Q*Q)/(r*r*r*r);};
+    b = [&](double r) { return ((2.*M-Q*Q)*(r*r)-2.*M*r-Q*Q)/(r*r*r*r);}; 
+    c = [&](double r) { return (-2.*(2.*M-Q*Q)*(r*r)-6.*M*r+4.*Q*Q-2.*M*r*r*r
+		    -2.*imag*q*Q*r*r*r*r)/(r*r*r*r*r); };
+    d = [&](double r) { return (r*r-2.*M*r+Q*Q)/(r*r); };
+    e = [&](double r) {return (2.*M*r-2.*Q*Q-(1.-2.*M)*r+(2.*M + 2.*Q*Q)
+		    -Q*Q*r*r*r)/(r*r*r);};
+    f = [&](double r) {return (q*q*Q*Q)/(r*r) ;};
     initial_values = [&](double r) {
      // double foobar = 0.1 * (R_1 - R_0) + R_0;
      // if (r > foobar)
      //   return 0.;
      // else
-	//return std::sin(coef1 * r);
-	return std::exp(-(r-((R_0+R_1)/2.))*(r - ((R_0+R_1)/2.))/ (.06));//works for diffusion
-	//return -(r * r) + (R_0 + R_1) * r - (R_0 * R_1);
-        //return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
+	return 10. * std::exp(-(r-10.1)*(r-10.1));
+	//return 10. * std::exp(-(r-100.)*(r - 100.)/2) ;
+    };
+    initial_values0 = [&](double r) {
+
+	return 10. * std::exp(-(r-10.)*(r-10.));
     };
     /*Boundary values resulting from manufactured solution*/
     boundary_values = [&](double r, double t) {
        //return 0.;
        if (r == R_0)
-	 //return std::sin(coef1 * R_0 - coef2 * t);
-	 return 0.;
-       if (r == R_1)
-	 //return std::sin(coef1 * R_1 - coef2 * t); 
-	// return std::sin(R_1);
-      /* else
-	 return 0.;*/
-	 return 0.;
+	 //return 0.;
+	 return 10. * std::exp(-(R_0-10.)*(R_0-10.));
+	 //return 10. * std::exp(-(R_0-10.)*(R_0 - 10.)/3.);
+      // if (r == R_1)
+	// return 0.;
+        // else
+	 //return 10. * std::exp((R_1-10.)*((R_1-10.)/2.)) ;//works for diffusion
     };
 
     //RHS resulting from ansatz solution: Psi=sin(ar - bt)
     manufactured_solution_rhs = [&](double r, double t) {
-      /*return (r * (-2. * coef2 + coef1 * (2. + g(r) * r)) * 
+     /* return (r * (-2. * coef2 + coef1 * (2. + g(r) * r)) * 
 	     std::cos(coef1 * r - coef2 * t) + 
 	     (imag * q * Q - coef1 * (-2. * coef2 + coef1 * (2. + f(r))) 	     * (r * r)) * std::sin(coef1 * r - coef2 * t)) / (r * r);*/
 	/*return (-coef2 * std::cos(coef1 * r - coef2 * t)) 
-		- (coef1 * coef1) * std::sin(coef1 * r - coef2 * t)*/;//diffusion man solution  	    
+		- (coef1 * coef1) * std::sin(coef1 * r - coef2 * t)*///diffusion man solution  	    
 	return 0.;
     };
   }
@@ -154,8 +151,10 @@ public:
   std::function<value_type(double)> b;
   std::function<value_type(double)> c;
   std::function<value_type(double)> d;
-
+  std::function<value_type(double)> e;
+  std::function<value_type(double)> f;
   std::function<value_type(double)> initial_values;
+  std::function<value_type(double)> initial_values0;
 
   std::function<value_type(double, double)> boundary_values;
 
@@ -164,9 +163,9 @@ public:
 private:
   /* Private functions: */
 
-  std::function<value_type(double)> f;
-  std::function<value_type(double)> f_prime;
-  std::function<value_type(double)> g;
+  //std::function<value_type(double)> f;
+  //std::function<value_type(double)> f_prime;
+ // std::function<value_type(double)> g;
 
   /* Parameters: */
 
@@ -471,6 +470,8 @@ public:
 
   SparseMatrix<double> mass_matrix;
   SparseMatrix<double> mass_matrix_unconstrained;
+  SparseMatrix<double> q_mass_matrix;
+  SparseMatrix<double> q_mass_matrix_unconstrained;
   SparseMatrix<double> stiffness_matrix;
   SparseMatrix<double> stiffness_matrix_unconstrained;
 
@@ -506,6 +507,8 @@ void OfflineData<dim>::setup()
   nodal_mass_matrix.reinit(sparsity_pattern);
   mass_matrix.reinit(sparsity_pattern);
   mass_matrix_unconstrained.reinit(sparsity_pattern);
+  q_mass_matrix.reinit(sparsity_pattern);
+  q_mass_matrix_unconstrained.reinit(sparsity_pattern);
   stiffness_matrix.reinit(sparsity_pattern);
   stiffness_matrix_unconstrained.reinit(sparsity_pattern);
 }
@@ -540,7 +543,7 @@ void OfflineData<dim>::setup_constraints()
   VectorTools::interpolate_boundary_values(
       mapping,
       dof_handler,
-      {{1, &boundary_value_function}},
+      {{0, &boundary_value_function}},
       boundary_value_map);
   //VectorTools::interpolate_boundary_values(
   //    dof_handler, 1, ZeroFunction<dim>(2), affine_constraints);
@@ -556,6 +559,8 @@ void OfflineData<dim>::assemble()
 
   nodal_mass_matrix = 0.;
   mass_matrix = 0.;
+  q_mass_matrix = 0.;
+  q_mass_matrix_unconstrained = 0.;
   mass_matrix_unconstrained = 0.;
   stiffness_matrix = 0.;
   stiffness_matrix_unconstrained = 0.;
@@ -569,6 +574,7 @@ void OfflineData<dim>::assemble()
 
   FullMatrix<double> cell_nodal_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_mass_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
 
   FEValues<dim> fe_values(mapping,
@@ -588,6 +594,7 @@ void OfflineData<dim>::assemble()
 
     cell_nodal_mass_matrix = 0;
     cell_mass_matrix = 0;
+    cell_q_mass_matrix = 0;
     cell_stiffness_matrix = 0.;
 
     fe_values.reinit(cell);
@@ -608,6 +615,8 @@ void OfflineData<dim>::assemble()
       const auto b = p_coefficients->b(r);
       const auto c = p_coefficients->c(r);
       const auto d = p_coefficients->d(r);
+      const auto e = p_coefficients->e(r);
+      const auto f = p_coefficients->f(r);
 
       const auto JxW = fe_values.JxW(q_point);
 
@@ -631,17 +640,15 @@ void OfflineData<dim>::assemble()
           const auto nodal_mass_term = value_i * value_j * JxW;
           cell_nodal_mass_matrix(i, j) += nodal_mass_term.real();
 
-          const auto mass_term = (c * value_i - 2. * grad_i[0]) * value_j * JxW;
-	  //const auto mass_term = (c * value_i) * value_j * JxW;//mass for diff prob.  
+	  const auto mass_term = a * value_i * value_j * JxW;   
           cell_mass_matrix(i, j) += mass_term.real();
 
+	  const auto q_mass_term = (-b * grad_i[0] + c * value_i) * value_j * JxW;
+	  cell_q_mass_matrix(i,j) += q_mass_term.real();
+
           const auto stiffness_term =
-              (a * value_i - b * grad_i[0]) * grad_j[0] * JxW +
-              d * value_i * value_j * JxW;//full term
-	  /*const auto stiffness_term = 
-	      (- b * grad_i[0]) * grad_j[0] * JxW;*///diffusion prob
-	  /*const auto stiffness_term =
-	    (a * value_i - b * grad_i[0]) * grad_j[0] * JxW;*/ //adv-diff
+              (d * grad_i[0] + e * value_i) * grad_j[0] * JxW -
+             f * value_i * value_j * JxW;
 	  cell_stiffness_matrix(i,j) += stiffness_term.real();
         } // for j
       }   // for i
@@ -654,6 +661,11 @@ void OfflineData<dim>::assemble()
         cell_mass_matrix, local_dof_indices, mass_matrix);
 
     mass_matrix_unconstrained.add(local_dof_indices, cell_mass_matrix);
+
+    affine_constraints.distribute_local_to_global(
+		    cell_q_mass_matrix, local_dof_indices, q_mass_matrix);
+    q_mass_matrix_unconstrained.add(local_dof_indices, cell_q_mass_matrix);
+
     affine_constraints.distribute_local_to_global(
         cell_stiffness_matrix, local_dof_indices, stiffness_matrix);
 
@@ -696,7 +708,7 @@ public:
   void prepare();
 
   /* Updates the vector with the solution for the next time step: */
-  void step(Vector<double> &old_solution, double new_t) const;
+  void step(Vector<double> &old_solution,Vector<double> &oldest_solution, double new_t) const;
 
   SmartPointer<const OfflineData<dim>> p_offline_data;
   SmartPointer<ManufacturedSolution<dim>> p_manufactured;
@@ -723,6 +735,7 @@ void TimeStep<dim>::prepare()
 
   linear_part.reinit(offline_data.sparsity_pattern);
   const auto &M_c = offline_data.mass_matrix;
+  const auto &Q_c = offline_data.q_mass_matrix;
   const auto &S_c = offline_data.stiffness_matrix;
 
   /* linear_part = M_c + (1. - theta) * kappa * S_c */
@@ -763,7 +776,7 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
   VectorTools::interpolate_boundary_values(
       mapping,
       dof_handler,
-      {{1, &boundary_value_function}},
+      {{0, &boundary_value_function}},
       boundary_value_map);
 
   for (auto it : boundary_value_map) {
@@ -773,7 +786,7 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
 
 
 template <int dim>
-void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
+void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double> &oldest_solution, double new_t) const
 {
   const auto &offline_data = *p_offline_data;
   const auto &coefficients = *offline_data.p_coefficients;
@@ -781,8 +794,10 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
   auto &manufactured = *p_manufactured;
 
   const auto M_c = linear_operator(offline_data.mass_matrix);
+  const auto Q_c = linear_operator(offline_data.q_mass_matrix);
   const auto S_c = linear_operator(offline_data.stiffness_matrix);
   const auto M_u = linear_operator(offline_data.mass_matrix_unconstrained);
+  const auto Q_u = linear_operator(offline_data.q_mass_matrix_unconstrained);
   const auto S_u = linear_operator(offline_data.stiffness_matrix_unconstrained);
 
   GrowingVectorMemory<Vector<double>> vector_memory;
@@ -790,14 +805,14 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
   auto &new_solution = *p_new_solution;
 
   new_solution = old_solution;
+  old_solution = oldest_solution;
   apply_boundary_values(offline_data, coefficients, new_t, new_solution);
   manufactured.set_time(new_t);
   manufactured.prepare();
 
   for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
-    Vector<double> residual = M_u * (new_solution - old_solution) +
-                              kappa * (1. - theta) * S_u * new_solution +
-                              theta * kappa * S_u * old_solution;// + manufactured.right_hand_side;
+    Vector<double> residual = M_u * (new_solution - 2.*old_solution + oldest_solution) + kappa * Q_u * (new_solution - old_solution) + kappa * kappa * (1. - theta) * S_u * new_solution + theta * kappa * kappa * S_u * old_solution;
+
     affine_constraints.set_zero(residual);
 
     if (residual.linfty_norm() < nonlinear_solver_tol)
@@ -815,12 +830,12 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
     affine_constraints.set_zero(update);
 
     new_solution += update;
+    old_solution += update;
   }
 
   {
-    Vector<double> residual = M_u * (new_solution - old_solution) +
-                              kappa * (1. - theta) * S_u * new_solution +
-                              theta * kappa * S_u * old_solution;// + manufactured.right_hand_side;
+    Vector<double> residual = M_u * (new_solution - 2.* old_solution + oldest_solution) + kappa * Q_u * (new_solution - old_solution) + kappa * kappa* (1. - theta) * S_u * new_solution + theta * kappa * kappa * S_u * old_solution;
+
     affine_constraints.set_zero(residual);
     std::cout<<"norm of residual: "<<residual.linfty_norm()<<std::endl;
     if (residual.linfty_norm() > nonlinear_solver_tol)
@@ -828,6 +843,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
   }
 
   old_solution = new_solution;
+  oldest_solution = old_solution;
 }
 
 
@@ -876,6 +892,9 @@ void TimeLoop<dim>::run()
   Vector<double> solution;
   solution.reinit(dof_handler.n_dofs());
 
+  Vector<double> oldsolution;
+  oldsolution.reinit(dof_handler.n_dofs());
+
   const double kappa = time_step.kappa;
 
   unsigned int n = 0;
@@ -885,8 +904,28 @@ void TimeLoop<dim>::run()
     std::cout << "time step n = " << n << "\tt = " << t << std::endl;
 
     if (n == 0) {
-      std::cout << "    interpolate initial values" << std::endl;
-      /* interpolate initial conditions: */
+      std::cout << "    interpolate first initial values" << std::endl;
+      /* interpolate first initial conditions: */
+
+      const auto &initial_values0 = coefficients.initial_values0;
+
+      const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
+        Assert(component <= 1, ExcMessage("need exactly two components"));
+
+        const auto value = initial_values0(/* r = */ p[0]);
+
+        if (component == 0)
+          return value.real();
+        else
+          return value.imag();
+      };
+      VectorTools::interpolate(mapping,
+                               dof_handler,
+                               to_function<dim, /*components*/ 2>(lambda),
+                               solution);
+    } else if (n == 1) {
+      std::cout << "    interpolate second initial values" << std::endl;
+      /* interpolate second initial conditions: */
 
       const auto &initial_values = coefficients.initial_values;
 
@@ -905,7 +944,9 @@ void TimeLoop<dim>::run()
                                to_function<dim, /*components*/ 2>(lambda),
                                solution);
     } else {
-      time_step.step(solution, t);
+
+      time_step.step(solution,oldsolution,t);
+
 
     }
 
@@ -918,10 +959,6 @@ void TimeLoop<dim>::run()
 
       std::string name = basename + "-" + std::to_string(n);
 
-      /*{
-        std::ofstream output(name + std::string(".gnuplot"));
-        data_out.write_gnuplot(output);
-      }*/
       {
         std::ofstream output(name + std::string(".vtk"));
         data_out.write_vtk(output);
