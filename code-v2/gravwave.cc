@@ -102,21 +102,22 @@ public:
     initial_values = [&](double r) {
      // double foobar = 0.1 * (R_1 - R_0) + R_0;
      // if (r > foobar)
-     //   return 0.;
+        return 0.;
      // else
-	return 10. * std::exp(-(r-10.1)*(r-10.1));
+	//return 10. * std::exp(-(r-10.1)*(r-10.1));
 	//return 10. * std::exp(-(r-100.)*(r - 100.)/2) ;
     };
     initial_values0 = [&](double r) {
 
-	return 10. * std::exp(-(r-10.)*(r-10.));
+	//return 10. * std::exp(-(r-10.)*(r-10.));
+	return 0.;
     };
     /*Boundary values resulting from manufactured solution*/
     boundary_values = [&](double r, double t) {
        //return 0.;
        if (r == R_0)
-	 //return 0.;
-	 return 10. * std::exp(-(R_0-10.)*(R_0-10.));
+	 return 0.;
+	 //return 10. * std::exp(-(R_0-10.)*(R_0-10.));
 	 //return 10. * std::exp(-(R_0-10.)*(R_0 - 10.)/3.);
       // if (r == R_1)
 	// return 0.;
@@ -740,7 +741,7 @@ void TimeStep<dim>::prepare()
 
   /* linear_part = M_c + (1. - theta) * kappa * S_c */
   linear_part.copy_from(M_c);
-  linear_part.add((1. - theta) * kappa, S_c);
+  linear_part.add((1. - theta) * kappa, S_c);//FIX ME
 
   linear_part_inverse.initialize(linear_part);
 }
@@ -812,7 +813,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double> &oldest_sol
 
   for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
     Vector<double> residual = M_u * (new_solution - 2.*old_solution + oldest_solution) + kappa * Q_u * (new_solution - old_solution) + kappa * kappa * (1. - theta) * S_u * new_solution + theta * kappa * kappa * S_u * old_solution;
-
+//FIRST TIME STEP RESIDUAL=0
     affine_constraints.set_zero(residual);
 
     if (residual.linfty_norm() < nonlinear_solver_tol)
@@ -830,7 +831,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double> &oldest_sol
     affine_constraints.set_zero(update);
 
     new_solution += update;
-    old_solution += update;
+    //old_solution += update;
   }
 
   {
