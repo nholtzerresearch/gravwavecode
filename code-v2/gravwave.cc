@@ -812,8 +812,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double> &oldest_sol
   manufactured.prepare();
 
   for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
-    Vector<double> residual = M_u * (new_solution - 2.*old_solution + oldest_solution) + kappa * Q_u * (new_solution - old_solution) + kappa * kappa * (1. - theta) * S_u * new_solution + theta * kappa * kappa * S_u * old_solution;
-//FIRST TIME STEP RESIDUAL=0
+    Vector<double> residual = M_u * (new_solution - 2.*old_solution + oldest_solution) + kappa * Q_u * (new_solution - old_solution) + kappa * kappa * (1. - theta) * S_u * new_solution - theta * kappa * kappa * S_u * old_solution;
     affine_constraints.set_zero(residual);
 
     if (residual.linfty_norm() < nonlinear_solver_tol)
@@ -835,7 +834,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double> &oldest_sol
   }
 
   {
-    Vector<double> residual = M_u * (new_solution - 2.* old_solution + oldest_solution) + kappa * Q_u * (new_solution - old_solution) + kappa * kappa* (1. - theta) * S_u * new_solution + theta * kappa * kappa * S_u * old_solution;
+    Vector<double> residual = M_u * (new_solution - 2.* old_solution + oldest_solution) + kappa * Q_u * (new_solution - old_solution) + kappa * kappa* (1. - theta) * S_u * new_solution - theta * kappa * kappa * S_u * old_solution;
 
     affine_constraints.set_zero(residual);
     std::cout<<"norm of residual: "<<residual.linfty_norm()<<std::endl;
