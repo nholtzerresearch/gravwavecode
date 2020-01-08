@@ -92,12 +92,11 @@ public:
     };*/
 
     a = [&](double r) {return (-r*r-2.*M*r+Q*Q)/(r*r*r*r);};
-    b = [&](double r) { return ((2.*M-Q*Q)*(r*r)-2.*M*r-Q*Q)/(r*r*r*r);}; 
-    c = [&](double r) { return (-2.*(2.*M-Q*Q)*(r*r)-6.*M*r+4.*Q*Q-2.*M*r*r*r
-		    -2.*imag*q*Q*r*r*r*r)/(r*r*r*r*r); };
+    b = [&](double r) { return (2.*M*r*r*r-Q*Q*r*r+2*M*r-Q*Q)/(r*r*r*r);}; 
+    c = [&](double r) { return (-2.*Q*Q*(2.+r*r)+6.*M*r+4.*M*r*r*r
+		    +2.*imag*q*Q*r*r*r*r)/(r*r*r*r*r); };
     d = [&](double r) { return (r*r-2.*M*r+Q*Q)/(r*r); };
-    e = [&](double r) {return (2.*M*r-2.*Q*Q-(1.-2.*M)*r+(2.*M + 2.*Q*Q)
-		    -Q*Q*r*r*r)/(r*r*r);};
+    e = [&](double r) {return (2.*M*r-2.*Q*Q-2.*r*r+2.*M*r)/(r*r*r);};
     f = [&](double r) {return (q*q*Q*Q)/(r*r) ;};
     initial_values = [&](double r) {
      // double foobar = 0.1 * (R_1 - R_0) + R_0;
@@ -739,9 +738,10 @@ void TimeStep<dim>::prepare()
   const auto &Q_c = offline_data.q_mass_matrix;
   const auto &S_c = offline_data.stiffness_matrix;
 
-  /* linear_part = M_c + (1. - theta) * kappa * S_c */
+  /* linear_part = M_c + kappa * Q_c +(1. - theta) * kappa * kappa* S_c */
   linear_part.copy_from(M_c);
-  linear_part.add((1. - theta) * kappa, S_c);//FIX ME
+  linear_part.add(kappa, Q_c);
+  linear_part.add((1. - theta) * kappa * kappa, S_c);
 
   linear_part_inverse.initialize(linear_part);
 }
