@@ -79,26 +79,18 @@ public:
     coef2 = 1.;
     add_parameter("coef2", coef2, "coefficient on t in the manufactured sol.");
 
-    /*f = [&](double r) {
-      return 1. - (2. * M / r) + (Q * Q) / (r * r) + 0. * imag;
-    };*/
+    a = [&](double r) {return (2.* M * pow(r,3.)-Q*Q*pow(r,2.)+2.*M*r-pow(Q,2.))/(-r*r - 2.*M*r + Q*Q);};
+    b = [&](double r) { return (pow(r,4.)-2*M*pow(r,3.)-Q*Q*pow(r,2.))/(-r*r-2.*M*r+Q*Q); }; 
+    c = [&](double r) { return (2.*M*pow(r,2.)-2.*imag*q*Q*pow(r,3.))/(-r*r-2.*M*r+Q*Q); };
+    d = [&](double r) { return (2.*r*r-2.*M*r)/(-r*r-2.*M*r+Q*Q); };
+    e = [&](double r) {return (r*r *q*q*Q*Q)/(-r*r-2.*M*r+Q*Q);};
+    aprime = [&](double r) { return -2.*r*(pow(Q,4.)+pow(Q,2.)*(1.-4.*M*r)+M*r*(-1. + 4.*M*r+ r*r))/((Q*Q-r*(2.*M+r))*(Q*Q-r*(2.*M+r))); };
 
-    /*f_prime = [&](double r) {
-      return (2. / (r * r)) * (M - ((Q * Q) / r)) + 0. * imag;
-    };
+    bprime = [&](double r) { return -2.*r*(pow(Q,4.)+2.*pow(Q,2.)*(M-r)*r+pow(r,2.)*(-4.*pow(M,2.)+2.*M*r+pow(r,2.)))/((Q*Q-r*(2.*M+r))*(Q*Q-r*(2.*M+r))); };
+    
+    dprime = [&](double r) { return 4.*pow(Q,2.)*r-2.*M*(pow(Q,2.)+3.*pow(r,2.)) /((Q*Q-r*(2.*M+r))*(Q*Q-r*(2.*M+r)));};
 
-    g = [&](double r) {
-      return 2. * f_prime(r) + 2. * (f(r) + imag * q * Q) / r;
-    };*/
-
-    a = [&](double r) {return (-r*r-2.*M*r+Q*Q)/(r*r*r*r);};
-    b = [&](double r) { return (2.*M*r*r*r-Q*Q*r*r+2*M*r-Q*Q)/(r*r*r*r);}; 
-    c = [&](double r) { return (-2.*Q*Q*(2.+r*r)+6.*M*r+4.*M*r*r*r
-		    +2.*imag*q*Q*r*r*r*r)/(r*r*r*r*r); };
-    d = [&](double r) { return (r*r-2.*M*r+Q*Q)/(r*r); };
-    e = [&](double r) {return (2.*M*r-2.*Q*Q-2.*r*r+2.*M*r)/(r*r*r);};
-    f = [&](double r) {return (q*q*Q*Q)/(r*r) ;};
-    initial_values = [&](double r) {
+    initial_values_u = [&](double r) {
      // double foobar = 0.1 * (R_1 - R_0) + R_0;
      // if (r > foobar)
         return 0.;
@@ -106,7 +98,7 @@ public:
 	//return 10. * std::exp(-(r-10.1)*(r-10.1));
 	//return 10. * std::exp(-(r-100.)*(r - 100.)/2) ;
     };
-    initial_values0 = [&](double r) {
+    initial_values_v = [&](double r) {
 
 	//return 10. * std::exp(-(r-10.)*(r-10.));
 	return 0.;
@@ -152,21 +144,17 @@ public:
   std::function<value_type(double)> c;
   std::function<value_type(double)> d;
   std::function<value_type(double)> e;
-  std::function<value_type(double)> f;
-  std::function<value_type(double)> initial_values;
-  std::function<value_type(double)> initial_values0;
+  std::function<value_type(double)> aprime;
+  std::function<value_type(double)> bprime;
+  std::function<value_type(double)> dprime;
+  std::function<value_type(double)> initial_values_u;
+  std::function<value_type(double)> initial_values_v;
 
   std::function<value_type(double, double)> boundary_values;
 
   std::function<value_type(double, double)> manufactured_solution_rhs;
 
 private:
-  /* Private functions: */
-
-  //std::function<value_type(double)> f;
-  //std::function<value_type(double)> f_prime;
- // std::function<value_type(double)> g;
-
   /* Parameters: */
 
   double M;
@@ -470,7 +458,8 @@ public:
 
   SparseMatrix<double> mass_matrix;
   SparseMatrix<double> mass_matrix_unconstrained;
-  SparseMatrix<double> q_mass_matrix;
+  SparseMatrix<double> q1_mass_matrix;
+  SparseMatrix<double> q2_mass_matrix; 
   SparseMatrix<double> q_mass_matrix_unconstrained;
   SparseMatrix<double> stiffness_matrix;
   SparseMatrix<double> stiffness_matrix_unconstrained;
@@ -507,7 +496,7 @@ void OfflineData<dim>::setup()
   nodal_mass_matrix.reinit(sparsity_pattern);
   mass_matrix.reinit(sparsity_pattern);
   mass_matrix_unconstrained.reinit(sparsity_pattern);
-  q_mass_matrix.reinit(sparsity_pattern);
+  q1_mass_matrix.reinit(sparsity_pattern);
   q_mass_matrix_unconstrained.reinit(sparsity_pattern);
   stiffness_matrix.reinit(sparsity_pattern);
   stiffness_matrix_unconstrained.reinit(sparsity_pattern);
@@ -545,8 +534,6 @@ void OfflineData<dim>::setup_constraints()
       dof_handler,
       {{0, &boundary_value_function}},
       boundary_value_map);
-  //VectorTools::interpolate_boundary_values(
-  //    dof_handler, 1, ZeroFunction<dim>(2), affine_constraints);
   DoFTools::make_hanging_node_constraints(dof_handler, affine_constraints);
 
   affine_constraints.close();
@@ -559,11 +546,13 @@ void OfflineData<dim>::assemble()
 
   nodal_mass_matrix = 0.;
   mass_matrix = 0.;
-  q_mass_matrix = 0.;
-  q_mass_matrix_unconstrained = 0.;
   mass_matrix_unconstrained = 0.;
+  q1_mass_matrix = 0.;
+  //q1_mass_matrix_unconstrained = 0.;
+  q2_mass_matrix = 0.;
+  //q2_mass_matrix_unconstrained = 0.;
   stiffness_matrix = 0.;
-  stiffness_matrix_unconstrained = 0.;
+  //stiffness_matrix_unconstrained = 0.;
 
   const auto &mapping = p_discretization->mapping();
   const auto &finite_element = p_discretization->finite_element();
@@ -574,8 +563,17 @@ void OfflineData<dim>::assemble()
 
   FullMatrix<double> cell_nodal_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_mass_matrix(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> cell_q_mass_matrix(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_mass_matrix_newv(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_mass_matrix_oldv(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_mass_matrix_newu(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_mass_matrix_oldu(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q1_mass_matrix_newv(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q1_mass_matrix_oldv(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q1_mass_matrix_newu(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q2_mass_matrix_oldu(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q2_mass_matrix_newu(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_stiffness_matrix_oldu(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_stiffness_matrix_newu(dofs_per_cell, dofs_per_cell);
 
   FEValues<dim> fe_values(mapping,
                           finite_element,
@@ -594,8 +592,17 @@ void OfflineData<dim>::assemble()
 
     cell_nodal_mass_matrix = 0;
     cell_mass_matrix = 0;
-    cell_q_mass_matrix = 0;
-    cell_stiffness_matrix = 0.;
+    cell_mass_matrix_newv = 0;
+    cell_mass_matrix_oldv = 0;
+    cell_mass_matrix_newu = 0;
+    cell_mass_matrix_oldu = 0;
+    cell_q1_mass_matrix_newv = 0;
+    cell_q1_mass_matrix_oldv = 0;
+    cell_q1_mass_matrix_newu = 0;
+    cell_q2_mass_matrix_oldu = 0;
+    cell_q2_mass_matrix_newu = 0;
+    cell_stiffness_matrix_oldu = 0.;
+    cell_stiffness_matrix_newu = 0.;
 
     fe_values.reinit(cell);
     cell->get_dof_indices(local_dof_indices);
@@ -616,8 +623,9 @@ void OfflineData<dim>::assemble()
       const auto c = p_coefficients->c(r);
       const auto d = p_coefficients->d(r);
       const auto e = p_coefficients->e(r);
-      const auto f = p_coefficients->f(r);
-
+      const auto aprime = p_coefficients->aprime(r);
+      const auto bprime = p_coefficients->bprime(r);
+      const auto dprime = p_coefficients->dprime(r);
       const auto JxW = fe_values.JxW(q_point);
 
       // index i for test space, index j for ansatz space
@@ -640,16 +648,23 @@ void OfflineData<dim>::assemble()
           const auto nodal_mass_term = value_i * value_j * JxW;
           cell_nodal_mass_matrix(i, j) += nodal_mass_term.real();
 
-	  const auto mass_term = a * value_i * value_j * JxW;   
-          cell_mass_matrix(i, j) += mass_term.real();
+	  const auto mass_term_newv = (1. + (c - aprime)) * value_i * value_j * JxW;   
+          cell_mass_matrix_newv(i, j) += mass_term_newv.real();
 
-	  const auto q_mass_term = (-b * grad_i[0] + c * value_i) * value_j * JxW;
-	  cell_q_mass_matrix(i,j) += q_mass_term.real();
+	  const auto mass_term_oldv = (c + aprime) * value_i * value_j * JxW;   
+          cell_mass_matrix_oldv(i, j) += mass_term_oldv.real();
+
+	  const auto mass_term_newu = (dprime - e) * value_i * value_j * JxW;   
+          cell_mass_matrix_newu(i, j) += mass_term_newu.real();
+
+          cell_mass_matrix_oldu(i, j) += mass_term_newu.real();
+	  const auto q1_mass_term = (-b * grad_i[0] + c * value_i) * value_j * JxW;
+	  cell_q1_mass_matrix_oldv(i,j) += q1_mass_term.real();
 
           const auto stiffness_term =
               (d * grad_i[0] + e * value_i) * grad_j[0] * JxW -
-             f * value_i * value_j * JxW;
-	  cell_stiffness_matrix(i,j) += stiffness_term.real();
+              value_i * value_j * JxW;
+	  cell_stiffness_matrix_oldu(i,j) += stiffness_term.real();
         } // for j
       }   // for i
     }     // for q_point
@@ -663,14 +678,14 @@ void OfflineData<dim>::assemble()
     mass_matrix_unconstrained.add(local_dof_indices, cell_mass_matrix);
 
     affine_constraints.distribute_local_to_global(
-		    cell_q_mass_matrix, local_dof_indices, q_mass_matrix);
-    q_mass_matrix_unconstrained.add(local_dof_indices, cell_q_mass_matrix);
+		    cell_q1_mass_matrix_oldv, local_dof_indices, q1_mass_matrix);
+    q_mass_matrix_unconstrained.add(local_dof_indices, cell_q1_mass_matrix_oldv);
 
     affine_constraints.distribute_local_to_global(
-        cell_stiffness_matrix, local_dof_indices, stiffness_matrix);
+        cell_stiffness_matrix_oldu, local_dof_indices, stiffness_matrix);
 
     stiffness_matrix_unconstrained.add(local_dof_indices,
-                                       cell_stiffness_matrix);
+                                       cell_stiffness_matrix_oldu);
   } // cell
 }
 
@@ -708,7 +723,7 @@ public:
   void prepare();
 
   /* Updates the vector with the solution for the next time step: */
-  void step(Vector<double> &old_solution,Vector<double> &oldest_solution, double new_t) const;
+  void step(Vector<double> &old_solution_u,Vector<double> &old_solution_v, double new_t) const;
 
   SmartPointer<const OfflineData<dim>> p_offline_data;
   SmartPointer<ManufacturedSolution<dim>> p_manufactured;
@@ -721,8 +736,11 @@ public:
   double nonlinear_solver_tol;
 
 private:
-  SparseMatrix<double> linear_part;
-  SparseDirectUMFPACK linear_part_inverse;
+  SparseMatrix<double> linear_part_u;
+  SparseDirectUMFPACK linear_part_u_inverse;
+
+  SparseMatrix<double> linear_part_v;
+  SparseDirectUMFPACK linear_part_v_inverse;
 };
 
 
@@ -733,17 +751,25 @@ void TimeStep<dim>::prepare()
   const auto &offline_data = *p_offline_data;
   //const auto &manufactured = *p_manufactured;
 
-  linear_part.reinit(offline_data.sparsity_pattern);
+  linear_part_u.reinit(offline_data.sparsity_pattern);
+  linear_part_v.reinit(offline_data.sparsity_pattern);
   const auto &M_c = offline_data.mass_matrix;
-  const auto &Q_c = offline_data.q_mass_matrix;
+  const auto &Q_c = offline_data.q1_mass_matrix;
   const auto &S_c = offline_data.stiffness_matrix;
 
-  /* linear_part = M_c + kappa * Q_c +(1. - theta) * kappa * kappa* S_c */
-  linear_part.copy_from(M_c);
-  linear_part.add(kappa, Q_c);
-  linear_part.add((1. - theta) * kappa * kappa, S_c);
+  /* linear_part_u = M_c + kappa * Q_c +(1. - theta) * kappa * kappa* S_c */
+  linear_part_u.copy_from(M_c);
+  linear_part_u.add(kappa, Q_c);
+  linear_part_u.add((1. - theta) * kappa * kappa, S_c);
 
-  linear_part_inverse.initialize(linear_part);
+  linear_part_u_inverse.initialize(linear_part_u);
+
+  /* linear_part_v = FIX ME */
+  linear_part_v.copy_from(M_c);
+  linear_part_v.add(kappa, Q_c);
+  linear_part_v.add((1. - theta) * kappa * kappa, S_c);
+
+  linear_part_v_inverse.initialize(linear_part_v);
 }
 
 
@@ -787,7 +813,7 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
 
 
 template <int dim>
-void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double> &oldest_solution, double new_t) const
+void TimeStep<dim>::step(Vector<double> &old_solution_u,Vector<double> &old_solution_v, double new_t) const
 {
   const auto &offline_data = *p_offline_data;
   const auto &coefficients = *offline_data.p_coefficients;
@@ -795,55 +821,80 @@ void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double> &oldest_sol
   auto &manufactured = *p_manufactured;
 
   const auto M_c = linear_operator(offline_data.mass_matrix);
-  const auto Q_c = linear_operator(offline_data.q_mass_matrix);
+  const auto Q_c = linear_operator(offline_data.q1_mass_matrix);
   const auto S_c = linear_operator(offline_data.stiffness_matrix);
   const auto M_u = linear_operator(offline_data.mass_matrix_unconstrained);
   const auto Q_u = linear_operator(offline_data.q_mass_matrix_unconstrained);
   const auto S_u = linear_operator(offline_data.stiffness_matrix_unconstrained);
 
-  GrowingVectorMemory<Vector<double>> vector_memory;
-  typename VectorMemory<Vector<double>>::Pointer p_new_solution(vector_memory);
-  auto &new_solution = *p_new_solution;
+  GrowingVectorMemory<Vector<double>> vector_memory_u;
+  GrowingVectorMemory<Vector<double>> vector_memory_v;
+  typename VectorMemory<Vector<double>>::Pointer p_new_solution_u(vector_memory_u);
 
-  new_solution = old_solution;
-  old_solution = oldest_solution;
-  apply_boundary_values(offline_data, coefficients, new_t, new_solution);
+  typename VectorMemory<Vector<double>>::Pointer p_new_solution_v(vector_memory_v);
+
+  auto &new_solution_u = *p_new_solution_u;
+  auto &new_solution_v = *p_new_solution_v;
+
+  new_solution_u = old_solution_u;
+  new_solution_v = old_solution_v;
+
+  apply_boundary_values(offline_data, coefficients, new_t, new_solution_u);
+  apply_boundary_values(offline_data, coefficients, new_t, new_solution_v);
+  
   manufactured.set_time(new_t);
   manufactured.prepare();
 
   for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
-    Vector<double> residual = M_u * (new_solution - 2.*old_solution + oldest_solution) + kappa * Q_u * (new_solution - old_solution) + kappa * kappa * (1. - theta) * S_u * new_solution - theta * kappa * kappa * S_u * old_solution;
-    affine_constraints.set_zero(residual);
+    Vector<double> residual_u = M_u * (new_solution_u - old_solution_u) - kappa * theta * M_u * new_solution_v - kappa * (1. - theta) * M_u * old_solution_v;
 
-    if (residual.linfty_norm() < nonlinear_solver_tol)
+    Vector<double> residual_v = M_u * (new_solution_v - 2.*old_solution_v) + kappa * Q_u * (new_solution_v - old_solution_v) + kappa * kappa * (1. - theta) * S_u * new_solution_v - theta * kappa * kappa * S_u * old_solution_v;
+    affine_constraints.set_zero(residual_v);
+    affine_constraints.set_zero(residual_v);
+
+    if ((residual_u.linfty_norm() < nonlinear_solver_tol)||(residual_v.linfty_norm() < nonlinear_solver_tol))
       break;
 
-    const auto system_matrix = linear_operator(linear_part);
+    const auto system_matrix_u = linear_operator(linear_part_u);
+    const auto system_matrix_v = linear_operator(linear_part_v);
 
     SolverControl solver_control(linear_solver_limit, linear_solver_tol);
     SolverGMRES<> solver(solver_control);
 
-    const auto system_matrix_inverse =
-        inverse_operator(system_matrix, solver, linear_part_inverse);
+    const auto system_matrix_u_inverse =
+        inverse_operator(system_matrix_u, solver, linear_part_u_inverse);
 
-    Vector<double> update = system_matrix_inverse * (-1. * residual);
-    affine_constraints.set_zero(update);
+    Vector<double> update_u = system_matrix_u_inverse * (-1. * residual_u);
 
-    new_solution += update;
-    //old_solution += update;
+    const auto system_matrix_v_inverse =
+        inverse_operator(system_matrix_v, solver, linear_part_v_inverse);
+
+    Vector<double> update_v = system_matrix_v_inverse * (-1. * residual_v);
+
+    affine_constraints.set_zero(update_u);
+    affine_constraints.set_zero(update_v);
+
+    new_solution_u += update_u;
+    new_solution_v += update_v;
   }
 
   {
-    Vector<double> residual = M_u * (new_solution - 2.* old_solution + oldest_solution) + kappa * Q_u * (new_solution - old_solution) + kappa * kappa* (1. - theta) * S_u * new_solution - theta * kappa * kappa * S_u * old_solution;
+    Vector<double> residual_u = M_u * (new_solution_u - old_solution_u) - kappa  * theta * M_u * new_solution_v - kappa * (1.-theta) * M_u * old_solution_v;
+    
+    Vector<double> residual_v = M_u * (new_solution_v - 2.* old_solution_v) + kappa * Q_u * (new_solution_v - old_solution_v) + kappa * kappa* (1. - theta) * S_u * new_solution_v - theta * kappa * kappa * S_u * old_solution_v;
 
-    affine_constraints.set_zero(residual);
-    std::cout<<"norm of residual: "<<residual.linfty_norm()<<std::endl;
-    if (residual.linfty_norm() > nonlinear_solver_tol)
+    affine_constraints.set_zero(residual_u);
+    affine_constraints.set_zero(residual_v);
+
+
+    std::cout<<"norm of residual_u: "<<residual_u.linfty_norm()<<std::endl;
+    std::cout<<"norm of residual_v: "<<residual_v.linfty_norm()<<std::endl;
+    if ((residual_u.linfty_norm() > nonlinear_solver_tol)||(residual_v.linfty_norm() > nonlinear_solver_tol))
       throw ExcMessage("non converged");
   }
 
-  old_solution = new_solution;
-  oldest_solution = old_solution;
+  old_solution_u = new_solution_u;
+  old_solution_v = new_solution_v;
 }
 
 
@@ -862,8 +913,12 @@ public:
     t_end = 1.0;
     add_parameter("final time", t_end, "final time of the simulation");
 
-    basename = "solution";
-    add_parameter("base name", basename, "base name for output files");
+    basename_u = "solution_u";
+    add_parameter("base name_u", basename_u, "base name for 'u' output files");
+
+
+    basename_v = "solution_v";
+    add_parameter("base name_v", basename_v, "base name for 'v' output files");
   }
 
   void run();
@@ -872,7 +927,8 @@ private:
   SmartPointer<const TimeStep<dim>> p_time_step;
 
   double t_end;
-  std::string basename;
+  std::string basename_u;
+  std::string basename_v;
 };
 
 
@@ -889,11 +945,16 @@ void TimeLoop<dim>::run()
   const auto &mapping = discretization.mapping();
   const auto &dof_handler = offline_data.dof_handler;
 
-  Vector<double> solution;
-  solution.reinit(dof_handler.n_dofs());
+  Vector<double> solution_u;
+  Vector<double> solution_v;
+  solution_u.reinit(dof_handler.n_dofs());
+  solution_v.reinit(dof_handler.n_dofs());
 
-  Vector<double> oldsolution;
-  oldsolution.reinit(dof_handler.n_dofs());
+  Vector<double> oldsolution_u;
+  Vector<double> oldsolution_v;
+
+  oldsolution_u.reinit(dof_handler.n_dofs());
+  oldsolution_v.reinit(dof_handler.n_dofs());
 
   const double kappa = time_step.kappa;
 
@@ -905,48 +966,39 @@ void TimeLoop<dim>::run()
 
     if (n == 0) {
       std::cout << "    interpolate first initial values" << std::endl;
-      /* interpolate first initial conditions: */
 
-      const auto &initial_values0 = coefficients.initial_values0;
-
-      const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
-        Assert(component <= 1, ExcMessage("need exactly two components"));
-
-        const auto value = initial_values0(/* r = */ p[0]);
-
-        if (component == 0)
-          return value.real();
-        else
-          return value.imag();
-      };
-      VectorTools::interpolate(mapping,
-                               dof_handler,
-                               to_function<dim, /*components*/ 2>(lambda),
-                               solution);
-    } else if (n == 1) {
-      std::cout << "    interpolate second initial values" << std::endl;
-      /* interpolate second initial conditions: */
-
-      const auto &initial_values = coefficients.initial_values;
+      const auto &initial_values_u = coefficients.initial_values_u;
+      const auto &initial_values_v = coefficients.initial_values_v;
 
       const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
         Assert(component <= 1, ExcMessage("need exactly two components"));
 
-        const auto value = initial_values(/* r = */ p[0]);
+        const auto value_u = initial_values_u(/* r = */ p[0]);
+        const auto value_v = initial_values_v(/* r = */ p[0]);
 
         if (component == 0)
-          return value.real();
+          return value_u.real();
         else
-          return value.imag();
+          return value_u.imag();
+	
+        if (component == 0)
+          return value_v.real();
+        else
+          return value_v.imag();
       };
       VectorTools::interpolate(mapping,
                                dof_handler,
                                to_function<dim, /*components*/ 2>(lambda),
-                               solution);
+                               solution_u);
+
+      VectorTools::interpolate(mapping,
+                               dof_handler,
+                               to_function<dim, /*components*/ 2>(lambda),
+                               solution_v);
     } else {
 
-      time_step.step(solution,oldsolution,t);
-
+      time_step.step(solution_u,solution_v,t);
+     // time_step.step(solution_v,t);
 
     }
 
@@ -954,10 +1006,13 @@ void TimeLoop<dim>::run()
       /* output: */
       dealii::DataOut<dim> data_out;
       data_out.attach_dof_handler(dof_handler);
-      data_out.add_data_vector(solution, "solution");
+      data_out.add_data_vector(solution_u, "solution_u");
+      data_out.add_data_vector(solution_v, "solution_v");
+
       data_out.build_patches(/* FIXME: adjust for DEGREE of ansatz */);
 
-      std::string name = basename + "-" + std::to_string(n);
+      std::string name  = "Solution-" + std::to_string(n);
+      
 
       {
         std::ofstream output(name + std::string(".vtk"));
@@ -984,7 +1039,7 @@ int main()
   OfflineData<dim> offline_data(coefficients, discretization);
   TimeStep<dim> time_step(offline_data, manufactured);
   TimeLoop<dim> time_loop(time_step);
-  ParameterAcceptor::initialize("gravwave.prm");
+  ParameterAcceptor::initialize("gravwave1.prm");
   manufactured.prepare();
   offline_data.prepare();
   time_step.prepare();
