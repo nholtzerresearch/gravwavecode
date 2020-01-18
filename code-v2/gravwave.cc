@@ -49,10 +49,10 @@ public:
   Coefficients()
       : ParameterAcceptor("A - Coefficients")
   {
-    R_0 = 0.001;
+    R_0 = 2.;
     add_parameter("R_0", R_0, "inner radius of the computational domain");
 
-    R_1 = 0.0186;
+    R_1 = 200.;
     add_parameter("R_1", R_1, "outer radius of the computational domain");
 
     Psi_0 = 0.001;
@@ -61,10 +61,10 @@ public:
     Psi_1 = 0.001;
     add_parameter("Psi_1", Psi_1, "outer boundary value");
 
-    M = 0.2;
+    M = 0.5;
     add_parameter("M", M, "mass of the black hole");
 
-    Q = 0.08;
+    Q = 0.0;
     add_parameter("Q", Q, "total charge of the black hole");
 
     q = 1.;
@@ -91,10 +91,7 @@ public:
     dprime = [&](double r) { return 4.*pow(Q,2.)*r-2.*M*(pow(Q,2.)+3.*pow(r,2.)) /((Q*Q-r*(2.*M+r))*(Q*Q-r*(2.*M+r)));};
 
     initial_values_u = [&](double r) {
-     // double foobar = 0.1 * (R_1 - R_0) + R_0;
-     // if (r > foobar)
         return 0.;
-     // else
 	//return 10. * std::exp(-(r-10.1)*(r-10.1));
 	//return 10. * std::exp(-(r-100.)*(r - 100.)/2) ;
     };
@@ -118,11 +115,6 @@ public:
 
     //RHS resulting from ansatz solution: Psi=sin(ar - bt)
     manufactured_solution_rhs = [&](double r, double t) {
-     /* return (r * (-2. * coef2 + coef1 * (2. + g(r) * r)) * 
-	     std::cos(coef1 * r - coef2 * t) + 
-	     (imag * q * Q - coef1 * (-2. * coef2 + coef1 * (2. + f(r))) 	     * (r * r)) * std::sin(coef1 * r - coef2 * t)) / (r * r);*/
-	/*return (-coef2 * std::cos(coef1 * r - coef2 * t)) 
-		- (coef1 * coef1) * std::sin(coef1 * r - coef2 * t)*///diffusion man solution  	    
 	return 0.;
     };
   }
@@ -458,12 +450,29 @@ public:
 
   SparseMatrix<double> mass_matrix;
   SparseMatrix<double> mass_matrix_unconstrained;
-  SparseMatrix<double> q1_mass_matrix;
-  SparseMatrix<double> q2_mass_matrix; 
-  SparseMatrix<double> q_mass_matrix_unconstrained;
-  SparseMatrix<double> stiffness_matrix;
-  SparseMatrix<double> stiffness_matrix_unconstrained;
 
+  SparseMatrix<double> mass_matrix_newv;
+  SparseMatrix<double> mass_matrix_oldv;
+  SparseMatrix<double> mass_matrix_newu;
+  SparseMatrix<double> mass_matrix_oldu;
+  SparseMatrix<double> mass_matrix_newv_unconstrained;
+  SparseMatrix<double> mass_matrix_oldv_unconstrained;
+  SparseMatrix<double> mass_matrix_oldu_unconstrained;
+  SparseMatrix<double> mass_matrix_newu_unconstrained;
+  SparseMatrix<double> q1_matrix_newv;
+  SparseMatrix<double> q1_matrix_oldv;
+  SparseMatrix<double> q1_matrix_newu;
+  SparseMatrix<double> q2_matrix_newu; 
+  SparseMatrix<double> q2_matrix_oldu; 
+  SparseMatrix<double> q1_matrix_newv_unconstrained;
+  SparseMatrix<double> q1_matrix_oldv_unconstrained;
+  SparseMatrix<double> q1_matrix_newu_unconstrained;
+  SparseMatrix<double> q2_matrix_newu_unconstrained;
+  SparseMatrix<double> q2_matrix_oldu_unconstrained;
+  SparseMatrix<double> stiffness_matrix_oldu;
+  SparseMatrix<double> stiffness_matrix_newu;
+  SparseMatrix<double> stiffness_matrix_oldu_unconstrained;
+  SparseMatrix<double> stiffness_matrix_newu_unconstrained;
 
   SmartPointer<const Coefficients> p_coefficients;
   SmartPointer<const Discretization<dim>> p_discretization;
@@ -496,10 +505,28 @@ void OfflineData<dim>::setup()
   nodal_mass_matrix.reinit(sparsity_pattern);
   mass_matrix.reinit(sparsity_pattern);
   mass_matrix_unconstrained.reinit(sparsity_pattern);
-  q1_mass_matrix.reinit(sparsity_pattern);
-  q_mass_matrix_unconstrained.reinit(sparsity_pattern);
-  stiffness_matrix.reinit(sparsity_pattern);
-  stiffness_matrix_unconstrained.reinit(sparsity_pattern);
+  mass_matrix_newv.reinit(sparsity_pattern);
+  mass_matrix_newv_unconstrained.reinit(sparsity_pattern);
+  mass_matrix_oldv.reinit(sparsity_pattern);
+  mass_matrix_oldv_unconstrained.reinit(sparsity_pattern);
+  mass_matrix_newu.reinit(sparsity_pattern);
+  mass_matrix_newu_unconstrained.reinit(sparsity_pattern);
+  mass_matrix_oldu.reinit(sparsity_pattern);
+  mass_matrix_oldu_unconstrained.reinit(sparsity_pattern);
+  q1_matrix_newv.reinit(sparsity_pattern);
+  q1_matrix_newv_unconstrained.reinit(sparsity_pattern);
+  q1_matrix_oldv.reinit(sparsity_pattern);
+  q1_matrix_oldv_unconstrained.reinit(sparsity_pattern);
+  q1_matrix_newu.reinit(sparsity_pattern);
+  q1_matrix_newu_unconstrained.reinit(sparsity_pattern);
+  q2_matrix_newu.reinit(sparsity_pattern);
+  q2_matrix_newu_unconstrained.reinit(sparsity_pattern);
+  q2_matrix_oldu.reinit(sparsity_pattern);
+  q2_matrix_oldu_unconstrained.reinit(sparsity_pattern);
+  stiffness_matrix_newu.reinit(sparsity_pattern);
+  stiffness_matrix_newu_unconstrained.reinit(sparsity_pattern);
+  stiffness_matrix_oldu.reinit(sparsity_pattern);
+  stiffness_matrix_oldu_unconstrained.reinit(sparsity_pattern);
 }
 
 
@@ -547,12 +574,30 @@ void OfflineData<dim>::assemble()
   nodal_mass_matrix = 0.;
   mass_matrix = 0.;
   mass_matrix_unconstrained = 0.;
-  q1_mass_matrix = 0.;
-  //q1_mass_matrix_unconstrained = 0.;
-  q2_mass_matrix = 0.;
-  //q2_mass_matrix_unconstrained = 0.;
-  stiffness_matrix = 0.;
-  //stiffness_matrix_unconstrained = 0.;
+
+  mass_matrix_newv = 0.;
+  mass_matrix_oldv = 0.;
+  mass_matrix_newu = 0.;
+  mass_matrix_oldu = 0.;
+  mass_matrix_newv_unconstrained = 0.;
+  mass_matrix_oldv_unconstrained = 0.;
+  mass_matrix_newu_unconstrained = 0.;
+  mass_matrix_oldu_unconstrained = 0.;
+
+  q1_matrix_newv = 0.;
+  q1_matrix_oldv = 0.;
+  q1_matrix_newu = 0.;
+  q1_matrix_newv_unconstrained = 0.;
+  q1_matrix_oldv_unconstrained = 0.;
+  q1_matrix_newu_unconstrained = 0.;
+  q2_matrix_newu = 0.;
+  q2_matrix_oldu = 0.;
+  q2_matrix_newu_unconstrained = 0.;
+  q2_matrix_oldu_unconstrained = 0.;
+  stiffness_matrix_newu = 0.;
+  stiffness_matrix_oldu = 0.;
+  stiffness_matrix_newu_unconstrained = 0.;
+  stiffness_matrix_oldu_unconstrained = 0.;
 
   const auto &mapping = p_discretization->mapping();
   const auto &finite_element = p_discretization->finite_element();
@@ -567,11 +612,11 @@ void OfflineData<dim>::assemble()
   FullMatrix<double> cell_mass_matrix_oldv(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_mass_matrix_newu(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_mass_matrix_oldu(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> cell_q1_mass_matrix_newv(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> cell_q1_mass_matrix_oldv(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> cell_q1_mass_matrix_newu(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> cell_q2_mass_matrix_oldu(dofs_per_cell, dofs_per_cell);
-  FullMatrix<double> cell_q2_mass_matrix_newu(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q1_matrix_newv(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q1_matrix_oldv(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q1_matrix_newu(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q2_matrix_oldu(dofs_per_cell, dofs_per_cell);
+  FullMatrix<double> cell_q2_matrix_newu(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_stiffness_matrix_oldu(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_stiffness_matrix_newu(dofs_per_cell, dofs_per_cell);
 
@@ -596,11 +641,11 @@ void OfflineData<dim>::assemble()
     cell_mass_matrix_oldv = 0;
     cell_mass_matrix_newu = 0;
     cell_mass_matrix_oldu = 0;
-    cell_q1_mass_matrix_newv = 0;
-    cell_q1_mass_matrix_oldv = 0;
-    cell_q1_mass_matrix_newu = 0;
-    cell_q2_mass_matrix_oldu = 0;
-    cell_q2_mass_matrix_newu = 0;
+    cell_q1_matrix_newv = 0;
+    cell_q1_matrix_oldv = 0;
+    cell_q1_matrix_newu = 0;
+    cell_q2_matrix_oldu = 0;
+    cell_q2_matrix_newu = 0;
     cell_stiffness_matrix_oldu = 0.;
     cell_stiffness_matrix_newu = 0.;
 
@@ -648,23 +693,42 @@ void OfflineData<dim>::assemble()
           const auto nodal_mass_term = value_i * value_j * JxW;
           cell_nodal_mass_matrix(i, j) += nodal_mass_term.real();
 
-	  const auto mass_term_newv = (1. + (c - aprime)) * value_i * value_j * JxW;   
+	  const auto mass_term_newv = ((c - aprime)) * value_i * value_j * JxW;   
           cell_mass_matrix_newv(i, j) += mass_term_newv.real();
 
 	  const auto mass_term_oldv = (c + aprime) * value_i * value_j * JxW;   
           cell_mass_matrix_oldv(i, j) += mass_term_oldv.real();
 
-	  const auto mass_term_newu = (dprime - e) * value_i * value_j * JxW;   
+	  const auto mass_term_newu = (e - dprime) * value_i * value_j * JxW;   
           cell_mass_matrix_newu(i, j) += mass_term_newu.real();
 
           cell_mass_matrix_oldu(i, j) += mass_term_newu.real();
-	  const auto q1_mass_term = (-b * grad_i[0] + c * value_i) * value_j * JxW;
-	  cell_q1_mass_matrix_oldv(i,j) += q1_mass_term.real();
 
-          const auto stiffness_term =
-              (d * grad_i[0] + e * value_i) * grad_j[0] * JxW -
-              value_i * value_j * JxW;
-	  cell_stiffness_matrix_oldu(i,j) += stiffness_term.real();
+	  //const auto nodal_q1_mass_term = value_i * grad_j[0] * JxW;
+	  //cell_nodal_q1_mass_matrix(i,j) += nodal_q1_mass_term.real(); //DO I NEED THIS FOR OTHER MATRICES BESIDES MASS
+	  //const auto nodal_q2_mass_term = grad_i[0] * value_j * JxW;
+	  //cell_nodal_q2_mass_matrix(i,j) += nodal_q2_mass_term.real();
+	  //
+	  const auto q1_term_newv = a * value_i * grad_j[0] * JxW;
+	  cell_q1_matrix_newv(i,j) += q1_term_newv.real();
+	  cell_q1_matrix_oldv(i,j) += q1_term_newv.real();
+
+	  const auto q1_term_newu = d * value_i * grad_j[0] * JxW;
+	  cell_q1_matrix_newu(i,j) += q1_term_newu.real();
+	  
+	  const auto q2_term_newu = dprime * grad_i[0] * value_j * JxW;
+	  cell_q2_matrix_newu(i,j) += q2_term_newu.real();
+
+	  
+	  const auto q2_term_oldu = (d + bprime) * grad_i[0] * value_j * JxW;
+	  cell_q2_matrix_oldu(i,j) += q2_term_oldu.real();
+
+
+          const auto stiffness_term_newu = d * grad_i[0]* grad_j[0] * JxW;
+	  cell_stiffness_matrix_newu(i,j) += stiffness_term_newu.real();
+
+          const auto stiffness_term_oldu = b * grad_i[0]* grad_j[0] * JxW;
+	  cell_stiffness_matrix_oldu(i,j) += stiffness_term_oldu.real();
         } // for j
       }   // for i
     }     // for q_point
@@ -676,15 +740,52 @@ void OfflineData<dim>::assemble()
         cell_mass_matrix, local_dof_indices, mass_matrix);
 
     mass_matrix_unconstrained.add(local_dof_indices, cell_mass_matrix);
+    
 
     affine_constraints.distribute_local_to_global(
-		    cell_q1_mass_matrix_oldv, local_dof_indices, q1_mass_matrix);
-    q_mass_matrix_unconstrained.add(local_dof_indices, cell_q1_mass_matrix_oldv);
+		    cell_mass_matrix_newv, local_dof_indices, mass_matrix_newv);
+    mass_matrix_newv_unconstrained.add(local_dof_indices, cell_q1_matrix_newv);
 
     affine_constraints.distribute_local_to_global(
-        cell_stiffness_matrix_oldu, local_dof_indices, stiffness_matrix);
+		    cell_mass_matrix_oldv, local_dof_indices, mass_matrix_oldv);
+    mass_matrix_newv_unconstrained.add(local_dof_indices, cell_mass_matrix_oldv);
 
-    stiffness_matrix_unconstrained.add(local_dof_indices,
+    affine_constraints.distribute_local_to_global(
+		    cell_mass_matrix_newv, local_dof_indices, mass_matrix_newu);
+    mass_matrix_newv_unconstrained.add(local_dof_indices, cell_mass_matrix_newu);
+
+    affine_constraints.distribute_local_to_global(
+		    cell_mass_matrix_oldu, local_dof_indices, mass_matrix_oldu);
+    mass_matrix_oldu_unconstrained.add(local_dof_indices, cell_mass_matrix_oldu);
+
+    affine_constraints.distribute_local_to_global(
+		    cell_q1_matrix_newv, local_dof_indices, q1_matrix_newv);
+    q1_matrix_newv_unconstrained.add(local_dof_indices, cell_q1_matrix_newv);
+
+    affine_constraints.distribute_local_to_global(
+		    cell_q1_matrix_oldv, local_dof_indices, q1_matrix_oldv);
+    q1_matrix_oldv_unconstrained.add(local_dof_indices, cell_q1_matrix_oldv);
+    
+    affine_constraints.distribute_local_to_global(
+		    cell_q1_matrix_newu, local_dof_indices, q1_matrix_newu);
+    q1_matrix_newu_unconstrained.add(local_dof_indices, cell_q1_matrix_newu);
+
+    affine_constraints.distribute_local_to_global(
+		    cell_q2_matrix_newu, local_dof_indices, q2_matrix_newu);
+    q2_matrix_newu_unconstrained.add(local_dof_indices, cell_q2_matrix_newu);
+
+    affine_constraints.distribute_local_to_global(
+		    cell_q2_matrix_oldu, local_dof_indices, q2_matrix_oldu);
+    q2_matrix_oldu_unconstrained.add(local_dof_indices, cell_q2_matrix_oldu);
+
+    affine_constraints.distribute_local_to_global(
+        cell_stiffness_matrix_newu, local_dof_indices, stiffness_matrix_newu);
+    stiffness_matrix_newu_unconstrained.add(local_dof_indices,
+                                       cell_stiffness_matrix_newu);
+
+    affine_constraints.distribute_local_to_global(
+        cell_stiffness_matrix_oldu, local_dof_indices, stiffness_matrix_oldu);
+    stiffness_matrix_oldu_unconstrained.add(local_dof_indices,
                                        cell_stiffness_matrix_oldu);
   } // cell
 }
@@ -754,20 +855,28 @@ void TimeStep<dim>::prepare()
   linear_part_u.reinit(offline_data.sparsity_pattern);
   linear_part_v.reinit(offline_data.sparsity_pattern);
   const auto &M_c = offline_data.mass_matrix;
-  const auto &Q_c = offline_data.q1_mass_matrix;
-  const auto &S_c = offline_data.stiffness_matrix;
-
-  /* linear_part_u = M_c + kappa * Q_c +(1. - theta) * kappa * kappa* S_c */
+  const auto &M_newv_c = offline_data.mass_matrix_newv;
+  const auto &M_oldv_c = offline_data.mass_matrix_oldv;
+  const auto &M_newu_c = offline_data.mass_matrix_newu;
+  const auto &M_oldu_c = offline_data.mass_matrix_oldu;
+  const auto &Q1_newv_c = offline_data.q1_matrix_newv;
+  const auto &Q1_oldv_c = offline_data.q1_matrix_oldv;
+  const auto &Q1_newu_c = offline_data.q1_matrix_newu;
+  const auto &Q2_newu_c = offline_data.q2_matrix_newu;
+  const auto &Q2_oldu_c = offline_data.q2_matrix_oldu;
+  const auto &S_newu_c = offline_data.stiffness_matrix_newu;
+  const auto &S_oldu_c = offline_data.stiffness_matrix_oldu;
+  /* linear_part_u = M_c  ASK ABOUT WHETHER THIS SHOULD INCLUDE V^n AS WELL*/
   linear_part_u.copy_from(M_c);
-  linear_part_u.add(kappa, Q_c);
-  linear_part_u.add((1. - theta) * kappa * kappa, S_c);
+  //linear_part_u.add(kappa, Q_c);
+  //linear_part_u.add((1. - theta) * kappa * kappa, S_c);
 
   linear_part_u_inverse.initialize(linear_part_u);
 
-  /* linear_part_v = FIX ME */
+  /* linear_part_v = M + kappa * theta *M_newv_c - kappa * theta * Q1_newv_c */
   linear_part_v.copy_from(M_c);
-  linear_part_v.add(kappa, Q_c);
-  linear_part_v.add((1. - theta) * kappa * kappa, S_c);
+  linear_part_v.add(theta * kappa, M_newv_c);
+  linear_part_v.add(theta *-kappa, Q1_newv_c);
 
   linear_part_v_inverse.initialize(linear_part_v);
 }
@@ -821,11 +930,30 @@ void TimeStep<dim>::step(Vector<double> &old_solution_u,Vector<double> &old_solu
   auto &manufactured = *p_manufactured;
 
   const auto M_c = linear_operator(offline_data.mass_matrix);
-  const auto Q_c = linear_operator(offline_data.q1_mass_matrix);
-  const auto S_c = linear_operator(offline_data.stiffness_matrix);
+  const auto M_newv_c = linear_operator(offline_data.mass_matrix_newv);
+  const auto M_oldv_c = linear_operator(offline_data.mass_matrix_oldv);
+  const auto M_newu_c = linear_operator(offline_data.mass_matrix_newu);
+  const auto M_oldu_c = linear_operator(offline_data.mass_matrix_oldu);
+  const auto Q1_newv_c = linear_operator(offline_data.q1_matrix_newv);
+  const auto Q1_oldv_c = linear_operator(offline_data.q1_matrix_oldv);
+  const auto Q1_newu_c = linear_operator(offline_data.q1_matrix_newu);
+  const auto Q2_newu_c = linear_operator(offline_data.q2_matrix_newu);
+  const auto Q2_oldu_c = linear_operator(offline_data.q2_matrix_oldu);
+  const auto S_newu_c = linear_operator(offline_data.stiffness_matrix_newu);
+  const auto S_oldu_c = linear_operator(offline_data.stiffness_matrix_oldu);
+
   const auto M_u = linear_operator(offline_data.mass_matrix_unconstrained);
-  const auto Q_u = linear_operator(offline_data.q_mass_matrix_unconstrained);
-  const auto S_u = linear_operator(offline_data.stiffness_matrix_unconstrained);
+  const auto M_newv_u = linear_operator(offline_data.mass_matrix_newv_unconstrained);
+  const auto M_oldv_u = linear_operator(offline_data.mass_matrix_oldv_unconstrained);
+  const auto M_newu_u = linear_operator(offline_data.mass_matrix_newu_unconstrained);
+  const auto M_oldu_u = linear_operator(offline_data.mass_matrix_oldu_unconstrained);
+  const auto Q1_newv_u = linear_operator(offline_data.q1_matrix_newv_unconstrained);
+  const auto Q1_oldv_u = linear_operator(offline_data.q1_matrix_oldv_unconstrained);
+  const auto Q1_newu_u = linear_operator(offline_data.q1_matrix_newu_unconstrained);
+  const auto Q2_newu_u = linear_operator(offline_data.q2_matrix_newu_unconstrained);
+  const auto Q2_oldu_u = linear_operator(offline_data.q2_matrix_oldu_unconstrained);
+  const auto S_newu_u = linear_operator(offline_data.stiffness_matrix_newu_unconstrained);
+  const auto S_oldu_u = linear_operator(offline_data.stiffness_matrix_oldu_unconstrained);
 
   GrowingVectorMemory<Vector<double>> vector_memory_u;
   GrowingVectorMemory<Vector<double>> vector_memory_v;
@@ -848,7 +976,8 @@ void TimeStep<dim>::step(Vector<double> &old_solution_u,Vector<double> &old_solu
   for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
     Vector<double> residual_u = M_u * (new_solution_u - old_solution_u) - kappa * theta * M_u * new_solution_v - kappa * (1. - theta) * M_u * old_solution_v;
 
-    Vector<double> residual_v = M_u * (new_solution_v - 2.*old_solution_v) + kappa * Q_u * (new_solution_v - old_solution_v) + kappa * kappa * (1. - theta) * S_u * new_solution_v - theta * kappa * kappa * S_u * old_solution_v;
+    Vector<double> residual_v = (M_u + kappa * theta * M_newv_u - kappa * theta * Q1_newv_u) * new_solution_v - kappa * (1-theta) * (M_oldv_u + Q1_oldv_u) * old_solution_v + kappa * theta * (M_newu_u - Q1_newu_u - Q2_newu_u - S_newu_u) * new_solution_u + kappa * (1-theta) * (M_oldu_u - Q2_oldu_u - S_oldu_u) * old_solution_u;
+
     affine_constraints.set_zero(residual_v);
     affine_constraints.set_zero(residual_v);
 
@@ -881,7 +1010,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution_u,Vector<double> &old_solu
   {
     Vector<double> residual_u = M_u * (new_solution_u - old_solution_u) - kappa  * theta * M_u * new_solution_v - kappa * (1.-theta) * M_u * old_solution_v;
     
-    Vector<double> residual_v = M_u * (new_solution_v - 2.* old_solution_v) + kappa * Q_u * (new_solution_v - old_solution_v) + kappa * kappa* (1. - theta) * S_u * new_solution_v - theta * kappa * kappa * S_u * old_solution_v;
+    Vector<double> residual_v = (M_u + kappa * theta * M_newv_u - kappa * theta * Q1_newv_u) * new_solution_v - kappa * (1-theta) * (M_oldv_u + Q1_oldv_u) * old_solution_v + kappa * theta * (M_newu_u - Q1_newu_u - Q2_newu_u - S_newu_u) * new_solution_u + kappa * (1-theta) * (M_oldu_u - Q2_oldu_u - S_oldu_u) * old_solution_u;
 
     affine_constraints.set_zero(residual_u);
     affine_constraints.set_zero(residual_v);
@@ -910,7 +1039,7 @@ public:
       : ParameterAcceptor("D - TimeLoop")
       , p_time_step(&time_step)
   {
-    t_end = 1.0;
+    t_end = 1000.;
     add_parameter("final time", t_end, "final time of the simulation");
 
     basename_u = "solution_u";
