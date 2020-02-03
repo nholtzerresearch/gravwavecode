@@ -446,8 +446,6 @@ public:
 
   AffineConstraints<double> affine_constraints;
 
-  SparseMatrix<double> nodal_mass_matrix;
-
   SparseMatrix<double> mass_matrix;
   SparseMatrix<double> mass_matrix_unconstrained;
 
@@ -502,7 +500,6 @@ void OfflineData<dim>::setup()
 
   sparsity_pattern.copy_from(c_sparsity);
 
-  nodal_mass_matrix.reinit(sparsity_pattern);
   mass_matrix.reinit(sparsity_pattern);
   mass_matrix_unconstrained.reinit(sparsity_pattern);
   mass_matrix_newv.reinit(sparsity_pattern);
@@ -571,7 +568,6 @@ void OfflineData<dim>::assemble()
 {
   std::cout << "OfflineData<dim>::assemble_system()" << std::endl;
 
-  nodal_mass_matrix = 0.;
   mass_matrix = 0.;
   mass_matrix_unconstrained = 0.;
 
@@ -606,7 +602,6 @@ void OfflineData<dim>::assemble()
 
   const unsigned int dofs_per_cell = finite_element.dofs_per_cell;
 
-  FullMatrix<double> cell_nodal_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_mass_matrix_newv(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_mass_matrix_oldv(dofs_per_cell, dofs_per_cell);
@@ -635,7 +630,6 @@ void OfflineData<dim>::assemble()
 
   for (auto cell : dof_handler.active_cell_iterators()) {
 
-    cell_nodal_mass_matrix = 0;
     cell_mass_matrix = 0;
     cell_mass_matrix_newv = 0;
     cell_mass_matrix_oldv = 0;
@@ -691,7 +685,7 @@ void OfflineData<dim>::assemble()
                               imag * imag_part.gradient(j, q_point);
 
           const auto nodal_mass_term = value_i * value_j * JxW;
-          cell_nodal_mass_matrix(i, j) += nodal_mass_term.real();
+          cell_mass_matrix(i, j) += nodal_mass_term.real();
 
 	  const auto mass_term_newv = ((c - aprime)) * value_i * value_j * JxW;   
           cell_mass_matrix_newv(i, j) += mass_term_newv.real();
@@ -734,13 +728,9 @@ void OfflineData<dim>::assemble()
     }     // for q_point
 
     affine_constraints.distribute_local_to_global(
-        cell_nodal_mass_matrix, local_dof_indices, nodal_mass_matrix);
-
-    affine_constraints.distribute_local_to_global(
         cell_mass_matrix, local_dof_indices, mass_matrix);
 
     mass_matrix_unconstrained.add(local_dof_indices, cell_mass_matrix);
-    
 
     affine_constraints.distribute_local_to_global(
 		    cell_mass_matrix_newv, local_dof_indices, mass_matrix_newv);
