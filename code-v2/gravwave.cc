@@ -340,7 +340,7 @@ ManufacturedSolution<dim>::get_manufactured_source(double r, double t)
 template <int dim>
 void ManufacturedSolution<dim>::setup()
 {
-  std::cout << "ManufacturedSolution<dim>::setup_right_hand_side()" << std::endl;
+  std::cout << "ManufacturedSolution<dim>::setup()" << std::endl;
 
   const auto &triangulation = p_discretization->triangulation();
   const auto &finite_element = p_discretization->finite_element();
@@ -361,14 +361,13 @@ void ManufacturedSolution<dim>::setup()
 template <int dim>
 void ManufacturedSolution<dim>::assemble()
 {
-  std::cout << "ManufacturedSolution<dim>::assemble_right_hand_side()" << std::endl;
+  std::cout << "ManufacturedSolution<dim>::assemble()" << std::endl;
 
   right_hand_side = 0.;
 
   const auto &mapping = p_discretization->mapping();
   const auto &finite_element = p_discretization->finite_element();
   const auto &quadrature = p_discretization->quadrature();
-  
 
   const unsigned int dofs_per_cell = finite_element.dofs_per_cell;
 
@@ -875,8 +874,8 @@ void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double> &old_soluti
   apply_boundary_values(offline_data, coefficients, new_t, new_solution_imag);
 
   new_solution_norm = old_solution_norm;
-  manufactured.set_time(new_t);
-  manufactured.prepare();
+  manufactured.set_time(new_t); // FIXME this is slow
+  manufactured.prepare(); // FIXME this is slow
 
   for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
     Vector<double> residual = M_u * (new_solution - old_solution) +
@@ -1039,6 +1038,7 @@ void TimeLoop<dim>::run()
 
     }
 
+// FIXME Only run output every x steps
     {
       /* output: */
       dealii::DataOut<dim> data_out;
