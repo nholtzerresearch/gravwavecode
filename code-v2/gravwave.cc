@@ -481,12 +481,6 @@ public:
   SparseMatrix<double> stiffness_matrix;
   SparseMatrix<double> stiffness_matrix_unconstrained;
 
- // SparseMatrix<double> nodal_mass_matrix_imag;
-
- // SparseMatrix<double> mass_matrix_imag;
- // SparseMatrix<double> mass_matrix_unconstrained_imag;
- // SparseMatrix<double> stiffness_matrix_imag;
- // SparseMatrix<double> stiffness_matrix_unconstrained_imag;
 
   SmartPointer<const Coefficients> p_coefficients;
   SmartPointer<const Discretization<dim>> p_discretization;
@@ -522,11 +516,6 @@ void OfflineData<dim>::setup()
   stiffness_matrix.reinit(sparsity_pattern);
   stiffness_matrix_unconstrained.reinit(sparsity_pattern);
 
-  /*nodal_mass_matrix_imag.reinit(sparsity_pattern);
-  mass_matrix_imag.reinit(sparsity_pattern);
-  mass_matrix_unconstrained_imag.reinit(sparsity_pattern);
-  stiffness_matrix_imag.reinit(sparsity_pattern);
-  stiffness_matrix_unconstrained_imag.reinit(sparsity_pattern);*/
 }
 
 
@@ -584,11 +573,6 @@ void OfflineData<dim>::assemble()
   stiffness_matrix_unconstrained = 0.;
 
 
-  /*nodal_mass_matrix_imag = 0.;
-  mass_matrix_imag = 0.;
-  mass_matrix_unconstrained_imag = 0.;
-  stiffness_matrix_imag = 0.;
-  stiffness_matrix_unconstrained_imag = 0.;*/
 
   const auto &mapping = p_discretization->mapping();
   const auto &finite_element = p_discretization->finite_element();
@@ -601,9 +585,6 @@ void OfflineData<dim>::assemble()
   FullMatrix<double> cell_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
 
-  //FullMatrix<double> cell_nodal_mass_matrix_imag(dofs_per_cell, dofs_per_cell);
-  //FullMatrix<double> cell_mass_matrix_imag(dofs_per_cell, dofs_per_cell);
-  //FullMatrix<double> cell_stiffness_matrix_imag(dofs_per_cell, dofs_per_cell);
 
   FEValues<dim> fe_values(mapping,
                           finite_element,
@@ -624,9 +605,6 @@ void OfflineData<dim>::assemble()
     cell_mass_matrix = 0;
     cell_stiffness_matrix = 0.;
 
-    /*cell_nodal_mass_matrix_imag = 0;
-    cell_mass_matrix_imag = 0;
-    cell_stiffness_matrix_imag = 0.;*/
 
     fe_values.reinit(cell);
     cell->get_dof_indices(local_dof_indices);
@@ -671,12 +649,10 @@ void OfflineData<dim>::assemble()
 
           const auto nodal_mass_term = value_i * value_j * JxW;
           cell_nodal_mass_matrix(i, j) += nodal_mass_term.real();
-          //cell_nodal_mass_matrix_imag(i, j) += nodal_mass_term.imag();
 
           const auto mass_term = (c * value_i - 2. * grad_i[0]) * value_j * JxW;
 	  //const auto mass_term = (c * value_i) * value_j * JxW;//mass for diff prob.  
           cell_mass_matrix(i, j) += mass_term.real();
-          //cell_mass_matrix_imag(i, j) += mass_term.imag();
 
           const auto stiffness_term =
               (a * value_i - b * grad_i[0]) * grad_j[0] * JxW +
@@ -686,7 +662,6 @@ void OfflineData<dim>::assemble()
 	  /*const auto stiffness_term =
 	    (a * value_i - b * grad_i[0]) * grad_j[0] * JxW;*/ //adv-diff
 	  cell_stiffness_matrix(i,j) += stiffness_term.real();
-	  //cell_stiffness_matrix_imag(i,j) += stiffness_term.imag();
         } // for j
       }   // for i
     }     // for q_point
@@ -704,18 +679,6 @@ void OfflineData<dim>::assemble()
     stiffness_matrix_unconstrained.add(local_dof_indices,
                                        cell_stiffness_matrix);
 
-    /*affine_constraints.distribute_local_to_global(
-        cell_nodal_mass_matrix_imag, local_dof_indices, nodal_mass_matrix_imag);*/
-
-    /*affine_constraints.distribute_local_to_global(
-        cell_mass_matrix_imag, local_dof_indices, mass_matrix_imag);*/
-
-    /*mass_matrix_unconstrained_imag.add(local_dof_indices, cell_mass_matrix_imag);
-    affine_constraints.distribute_local_to_global(
-        cell_stiffness_matrix_imag, local_dof_indices, stiffness_matrix_imag);
-
-    stiffness_matrix_unconstrained_imag.add(local_dof_indices,
-                                       cell_stiffness_matrix_imag);*/
   } // cell
 }
 
@@ -755,7 +718,6 @@ public:
   /* Updates the vector with the solution for the next time step: */
   void step(Vector<double> &old_solution, double new_t) const;
 
-  //void step(Vector<double> &old_solution,Vector<double>&old_solution_norm, double new_t) const;
 
   SmartPointer<const OfflineData<dim>> p_offline_data;
   SmartPointer<ManufacturedSolution<dim>> p_manufactured;
@@ -771,8 +733,6 @@ private:
   SparseMatrix<double> linear_part;
   SparseDirectUMFPACK linear_part_inverse;
 
-  //SparseMatrix<double> linear_part_imag;
-  //SparseDirectUMFPACK linear_part_inverse_imag;
 };
 
 
@@ -787,19 +747,11 @@ void TimeStep<dim>::prepare()
   const auto &M_c = offline_data.mass_matrix;
   const auto &S_c = offline_data.stiffness_matrix;
 
-  //linear_part_imag.reinit(offline_data.sparsity_pattern);
-  //const auto &M_c_imag = offline_data.mass_matrix_imag;
-  //const auto &S_c_imag = offline_data.stiffness_matrix_imag;
-  /* linear_part = M_c + (1. - theta) * kappa * S_c */
   linear_part.copy_from(M_c);
   linear_part.add((1. - theta) * kappa, S_c);
 
   linear_part_inverse.initialize(linear_part);
 
-  //linear_part_imag.copy_from(M_c_imag);
- // linear_part_imag.add((1. - theta) * kappa, S_c_imag);
-
-  //linear_part_inverse_imag.initialize(linear_part_imag);
 }
 
 
@@ -845,7 +797,6 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
 template <int dim>
 void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
 
-//void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double>&old_solution_norm, double new_t) const
 {
   const auto &offline_data = *p_offline_data;
   const auto &coefficients = *offline_data.p_coefficients;
@@ -857,10 +808,6 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
   const auto M_u = linear_operator(offline_data.mass_matrix_unconstrained);
   const auto S_u = linear_operator(offline_data.stiffness_matrix_unconstrained);
 
-  /*const auto M_c_imag = linear_operator(offline_data.mass_matrix_imag);
-  const auto S_c_imag = linear_operator(offline_data.stiffness_matrix_imag);
-  const auto M_u_imag = linear_operator(offline_data.mass_matrix_unconstrained_imag);
-  const auto S_u_imag = linear_operator(offline_data.stiffness_matrix_unconstrained_imag);*/
 
 /*  for (auto cell : dof_handler.active_cell_iterators()) {
 	  for(unsigned int q_point=0; q_point<n_q_points; ++q_point){
@@ -877,20 +824,11 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
   typename VectorMemory<Vector<double>>::Pointer p_new_solution(vector_memory);
   auto &new_solution = *p_new_solution;
 
-  //GrowingVectorMemory<Vector<double>> vector_memory_imag;
-  //typename VectorMemory<Vector<double>>::Pointer p_new_solution_imag(vector_memory_imag);
-  //auto &new_solution_imag = *p_new_solution_imag;
 
-
-  //GrowingVectorMemory<Vector<double>> vector_memory_norm;
-  //typename VectorMemory<Vector<double>>::Pointer p_new_solution_norm(vector_memory_norm);
-  //auto &new_solution_norm = *p_new_solution_norm;
 
   new_solution = old_solution;
   apply_boundary_values(offline_data, coefficients, new_t, new_solution);
 
-  //new_solution_imag = old_solution_imag;
-  //apply_boundary_values(offline_data, coefficients, new_t, new_solution_imag);
 
   //new_solution_norm = old_solution_norm;
   //manufactured.set_time(new_t); // FIXME this is slow
@@ -901,19 +839,13 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
                               kappa * (1. - theta) * S_u * new_solution +
                               theta * kappa * S_u * old_solution;// + manufactured.right_hand_side;
 
-    /*Vector<double> residual_imag = M_u_imag * (new_solution_imag 
-		                   - old_solution_imag) +kappa * (1. - theta) *                                    S_u_imag * new_solution_imag +
-                                   theta * kappa * S_u_imag * old_solution_imag;*/
-
     affine_constraints.set_zero(residual);
 
-    //affine_constraints.set_zero(residual_imag);
     if (residual.linfty_norm() < nonlinear_solver_tol)
       break;
 
     const auto system_matrix = linear_operator(linear_part);
 
-    //const auto system_matrix_imag = linear_operator(linear_part_imag);
 
     SolverControl solver_control(linear_solver_limit, linear_solver_tol);
     SolverGMRES<> solver(solver_control);
@@ -921,41 +853,22 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
     const auto system_matrix_inverse =
         inverse_operator(system_matrix, solver, linear_part_inverse);
 
-    //const auto system_matrix_inverse_imag =
-      //  inverse_operator(system_matrix_imag, solver, linear_part_inverse_imag);
 
     Vector<double> update = system_matrix_inverse * (-1. * residual);
 
-    //Vector<double> update_imag = system_matrix_inverse_imag * (-1. * residual_imag);
-    //Vector<double>  update_positive = std::abs(update);
     affine_constraints.set_zero(update);
 
-    //affine_constraints.set_zero(update_imag);
-
-    //affine_constraints.set_zero(update_positive);
 
     new_solution += update;
 
-    //new_solution_imag += update_imag;
-
-    /*for(unsigned int i=0; i < new_solution.size(); i++){
-	    if(new_solution[i]<0)
-		    new_solution_norm[i] = sqrt(new_solution[i]*new_solution[i]+new_solution_imag[i]*new_solution_imag[i]);*/
     }
-   // new_solution_positive += update_positive;
-  //}
 
   {
     Vector<double> residual = M_u * (new_solution - old_solution) +
                               kappa * (1. - theta) * S_u * new_solution +
                               theta * kappa * S_u * old_solution;// + manufactured.right_hand_side;
 
-    /*Vector<double> residual_imag = M_u_imag * (new_solution_imag                                                   - old_solution_imag) +
-                                   kappa * (1. - theta) * S_u_imag * 
-				   new_solution_imag + theta * kappa * 
-				   S_u_imag * old_solution_imag;*/
     affine_constraints.set_zero(residual);
-    //affine_constraints.set_zero(residual_imag);
     std::cout<<"norm of residual: "<<residual.linfty_norm()<<std::endl;
     if (residual.linfty_norm() > nonlinear_solver_tol)
       throw ExcMessage("non converged");
@@ -963,9 +876,6 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
 
   old_solution = new_solution;
 
-  //old_solution_imag = new_solution_imag;
-
-  //old_solution_norm = new_solution_norm;
 }
 
 
@@ -1014,11 +924,6 @@ void TimeLoop<dim>::run()
   Vector<double> solution;
   solution.reinit(dof_handler.n_dofs());
 
-  //Vector<double> solution_imag;
-  //solution_imag.reinit(dof_handler.n_dofs());
-
-  //Vector<double> solution_norm;
-  //solution_norm.reinit(dof_handler.n_dofs());
   const double kappa = time_step.kappa;
 
   unsigned int n = 0;
@@ -1048,17 +953,12 @@ void TimeLoop<dim>::run()
                                to_function<dim, /*components*/ 2>(lambda),
                                solution);
 
-      /*VectorTools::interpolate(mapping,
-                               dof_handler,
-                               to_function<dim, /*components*/// 2>(lambda),
-                              // solution_imag);
     } else {
-      //time_step.step(solution,solution_imag,solution_norm, t);
       time_step.step(solution, t);
 
     }
 
-// FIXME Only run output every x steps
+//  Only run output every x steps
     //if((n > 0) && (n % 100 == 0))
     {
       /* output: */
@@ -1066,28 +966,15 @@ void TimeLoop<dim>::run()
       data_out.attach_dof_handler(dof_handler);
       data_out.add_data_vector(solution, "solution");
 
-      //data_out.add_data_vector(solution_imag, "solution_imag");
 
-      //data_out.add_data_vector(solution_norm, "solution_norm");
       data_out.build_patches(/* FIXME: adjust for DEGREE of ansatz */);
 
       std::string name = basename + std::to_string(n);
-      //std::string name_imag = basename + "_imag-" + std::to_string(n);
 
-      //std::string name_positive = basename + "_norm-" + std::to_string(n);
-      /*{
-        std::ofstream output(name + std::string(".gnuplot"));
-        data_out.write_gnuplot(output);
-      }*/
       {
         std::ofstream output(name + std::string(".vtk"));
         data_out.write_vtk(output);
 
-        //std::ofstream outputi(name_imag + std::string(".vtk"));
-        //data_out.write_vtk(outputi);
-
-        //std::ofstream outputp(name_positive + std::string(".vtk"));
-        //data_out.write_vtk(outputp);
       }
     }
     n += 1;
