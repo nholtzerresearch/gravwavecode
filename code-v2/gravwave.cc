@@ -648,6 +648,7 @@ void OfflineData<dim>::assemble()
       const auto d = p_coefficients->d(r);
 
       const auto JxW = fe_values.JxW(q_point);
+      dealii::Tensor<1,dim,double> u_grad;
 
       // index i for test space, index j for ansatz space
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
@@ -657,6 +658,8 @@ void OfflineData<dim>::assemble()
 
         const auto grad_i = rot_x * real_part.gradient(i, q_point) +
                             rot_y * imag_part.gradient(i, q_point);
+
+	//u_grad += old_solution[local_dof_indices[i]]*fe_values.shape_grad(i,q_point)*JxW;//FIXME
 
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
 
@@ -858,6 +861,17 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
   const auto S_c_imag = linear_operator(offline_data.stiffness_matrix_imag);
   const auto M_u_imag = linear_operator(offline_data.mass_matrix_unconstrained_imag);
   const auto S_u_imag = linear_operator(offline_data.stiffness_matrix_unconstrained_imag);*/
+
+/*  for (auto cell : dof_handler.active_cell_iterators()) {
+	  for(unsigned int q_point=0; q_point<n_q_points; ++q_point){
+		  const auto JxW = offline_data.fe_values.JxW(q_point);
+
+		  deallii::Tensor<1,dim,double> u_grad = 0;
+		  for(unsigned int i=0; i<dofs_per_cell;++i){
+			  u_grad+=old_solution[local_dof_indices[i]]*fe_values.shape_grad(i, q_point)*JxW;
+		  }
+	  }
+  }*/
 
   GrowingVectorMemory<Vector<double>> vector_memory;
   typename VectorMemory<Vector<double>>::Pointer p_new_solution(vector_memory);
