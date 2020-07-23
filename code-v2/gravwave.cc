@@ -79,6 +79,9 @@ public:
     coef2 = 1.;
     add_parameter("coef2", coef2, "coefficient on t in the manufactured sol.");
 
+    lam = 1.;
+    add_parameter("lambda", lam, "coefficient on nonlinear rhs.");
+
     f = [&](double r) {
       return 1. - (2. * M / r) + (Q * Q) / (r * r) + 0. * imag;
     };
@@ -182,6 +185,7 @@ private:
   double q;
   double coef1;
   double coef2;
+  double lam;
 };
 
 
@@ -723,6 +727,7 @@ public:
   SmartPointer<ManufacturedSolution<dim>> p_manufactured;
   double kappa;
   double theta;
+  double lam;
 
   unsigned int linear_solver_limit;
   double linear_solver_tol;
@@ -789,8 +794,14 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
       boundary_value_map);
 
   for (auto it : boundary_value_map) {
+
+    std::cout<<"global dofs: "<<boundary_value_map[0]<<std::endl;
     vector[it.first] = it.second;
+    //print cout global index 
+    //std::cout<<"number of global dofs: "<<vector.size() <<std::endl;
+    //std::cout<<"global dofs: "<<vector<<std::endl;
   }
+
 }
 
 
@@ -830,7 +841,6 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
   apply_boundary_values(offline_data, coefficients, new_t, new_solution);
 
 
-  //new_solution_norm = old_solution_norm;
   //manufactured.set_time(new_t); // FIXME this is slow
   //manufactured.prepare(); // FIXME this is slow
 
@@ -959,7 +969,7 @@ void TimeLoop<dim>::run()
     }
 
 //  Only run output every x steps
-    //if((n > 0) && (n % 100 == 0))
+    if((n > 0) && (n % 100 == 0))
     {
       /* output: */
       dealii::DataOut<dim> data_out;
