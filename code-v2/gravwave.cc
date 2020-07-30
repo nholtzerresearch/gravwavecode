@@ -232,8 +232,8 @@ public:
         triangulation, p_coefficients->R_0, p_coefficients->R_1);
     /* IDS 0-left, 1-right */
 
-    triangulation.begin_active()->face(0)->set_boundary_id(1); // FIXME
-    triangulation.begin_active()->face(1)->set_boundary_id(0); // FIXME
+    triangulation.begin_active()->face(0)->set_boundary_id(0); // FIXME
+    triangulation.begin_active()->face(1)->set_boundary_id(1); // FIXME
 
     triangulation.refine_global(refinement);
 
@@ -764,7 +764,8 @@ template<int dim>
 void apply_boundary_values(const OfflineData<dim> &offline_data,
                            const Coefficients &coefficients,
                            double t,
-                           Vector<double> &vector)
+                           Vector<double> &vector_new,
+			   Vector<double> &vector_old)
 {
   const auto &mapping = offline_data.p_discretization->mapping();
   const auto &dof_handler = offline_data.dof_handler;
@@ -772,11 +773,16 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
   const auto &boundary_values = coefficients.boundary_values;
 
   std::map<types::global_dof_index, double> boundary_value_map;
+  std::cout<<"pre Vector_old at position zero is: "<<vector_old[0]<<std::endl;
+  t = 5.;
+
+  std::cout<<"post Vector_old at position zero is: "<<vector_old[0]<<std::endl;
 
   const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
     Assert(component <= 1, ExcMessage("need exactly two components"));
 
     const auto value = boundary_values(/* r = */ p[0], /* t = */ t);
+    std::cout<<"boundary value function output is: "<<value<<std::endl;
 
     if (component == 0)
       return value.real();
@@ -795,11 +801,8 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
 
   for (auto it : boundary_value_map) {
 
-    std::cout<<"global dofs: "<<boundary_value_map[0]<<std::endl;
-    vector[it.first] = it.second;
-    //print cout global index 
-    //std::cout<<"number of global dofs: "<<vector.size() <<std::endl;
-    //std::cout<<"global dofs: "<<vector<<std::endl;
+    //std::cout<<"global dofs: "<<boundary_value_map[0]<<std::endl;
+    vector_new[it.first] = it.second;
   }
 
 }
@@ -820,17 +823,6 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
   const auto S_u = linear_operator(offline_data.stiffness_matrix_unconstrained);
 
 
-/*  for (auto cell : dof_handler.active_cell_iterators()) {
-	  for(unsigned int q_point=0; q_point<n_q_points; ++q_point){
-		  const auto JxW = offline_data.fe_values.JxW(q_point);
-
-		  deallii::Tensor<1,dim,double> u_grad = 0;
-		  for(unsigned int i=0; i<dofs_per_cell;++i){
-			  u_grad+=old_solution[local_dof_indices[i]]*fe_values.shape_grad(i, q_point)*JxW;
-		  }
-	  }
-  }*/
-
   GrowingVectorMemory<Vector<double>> vector_memory;
   typename VectorMemory<Vector<double>>::Pointer p_new_solution(vector_memory);
   auto &new_solution = *p_new_solution;
@@ -838,7 +830,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
 
 
   new_solution = old_solution;
-  apply_boundary_values(offline_data, coefficients, new_t, new_solution);
+  apply_boundary_values(offline_data, coefficients, new_t, new_solution, old_solution);
 
 
   //manufactured.set_time(new_t); // FIXME this is slow
@@ -969,7 +961,7 @@ void TimeLoop<dim>::run()
     }
 
 //  Only run output every x steps
-    if((n > 0) && (n % 100 == 0))
+   // if((n > 0) && (n % 100 == 0))
     {
       /* output: */
       dealii::DataOut<dim> data_out;
