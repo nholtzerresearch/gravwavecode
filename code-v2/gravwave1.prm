@@ -2,37 +2,34 @@
 # ---------------------
 subsection A - Coefficients
   # mass of the black hole
-  set M      = 1
+  set M     = 0.5
 
   # mu parameter of the initial envelope
-  set Mu     = 2
+  set Mu    = 2
 
   # inner boundary value
-  set Psi_0  = 0, 0
+  set Psi_0 = 0.001, 0
 
   # outer boundary value
-  set Psi_1  = 0, 0
+  set Psi_1 = 0.001, 0
 
   # total charge of the black hole
-  set Q      = 0.0
+  set Q     = 0
 
   # inner radius of the computational domain
-  set R_0    = 0.5
+  set R_0   = 2
 
   # outer radius of the computational domain
-  set R_1    = 500.0
+  set R_1   = 200
 
   # coefficient on r in the manufactured sol.
-  set coef1  = 1
+  set coef1 = 1
 
   # coefficient on t in the manufactured sol.
-  set coef2  = 1
-
-  # coefficient on nonlinear rhs.
-  set lambda = 1
+  set coef2 = 1
 
   # charge density
-  set q      = 1
+  set q     = 1
 end
 
 
@@ -47,7 +44,7 @@ subsection B - Discretization
   set order quadrature     = 3
 
   # refinement of the spatial geometry
-  set refinement           = 11
+  set refinement           = 5
 end
 
 
@@ -59,25 +56,28 @@ subsection C - TimeStep
   set linear_solver_limit    = 1000
 
   # tolerance to determine if newton step should keep running on left
-  set linear_solver_tol      = 1e-01
+  set linear_solver_tol      = 1e-12
 
   # max number of iterations in newton scheme for nonlinear (right) side
   set nonlinear_solver_limit = 100
 
   # tolerance to determine if newton step should keep running on right
-  set nonlinear_solver_tol   = 1e-01
+  set nonlinear_solver_tol   = 1e-12
 
   # theta paramter of the theta scheme
-  set theta                  = 0.2
+  set theta                  = 0.5
 end
 
 
 subsection D - TimeLoop
-  # base name for output files
-  set base name  = solution_1
+  # base name for 'u' output files
+  set base name_u = solution_u
+
+  # base name for 'v' output files
+  set base name_v = solution_v
 
   # final time of the simulation
-  set final time = 300
+  set final time  = 1000
 end
 
 

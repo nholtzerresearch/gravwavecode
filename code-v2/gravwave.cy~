@@ -73,14 +73,6 @@ public:
     Mu = 2.;
     add_parameter("Mu", Mu, "mu parameter of the initial envelope");
 
-    coef1 = 1.;
-    add_parameter("coef1", coef1, "coefficient on r in the manufactured sol.");
-
-    coef2 = 1.;
-    add_parameter("coef2", coef2, "coefficient on t in the manufactured sol.");
-
-    lam = 1.;
-    add_parameter("lambda", lam, "coefficient on nonlinear rhs.");
 
     f = [&](double r) {
       return 1. - (2. * M / r) + (Q * Q) / (r * r) + 0. * imag;
@@ -94,57 +86,25 @@ public:
       return 2. * f_prime(r) + 2. * (f(r) + imag * q * Q) / r;
     };
 
-    //a = [&](double r) { return f_prime(r) + 2.*(f(r)-imag * q * Q + 1.) / r; };
-    a = [&](double r) { return g(r) + 2. / r - f_prime(r); };//old a
-    //a = [&](double r) { return g(r) - 2./ r - f_prime(r);}; //new a
-    //a = [&](double r) { return 1.; }; //'a' 0.: coef for simple diff prob
-    b = [&](double r) { return 2. + f(r); };//old b
-    //b = [&](double r) { return 2. - f(r); };//new b
-    //b = [&](double r) { return -1.;}; 
+    a = [&](double r) { return 2.*(f(r)-imag * q * Q + 1.) / r; };
+    // a = [&](double r) { return g(r) + 2. / r - f_prime(r); };
+
+    b = [&](double r) { return 2. + f(r); };
+
     c = [&](double r) { return 2. / r; };
-    //c = [&](double r) { return 1.;};
-    //d = [&](double r) { return 1.;};
+
     d = [&](double r) { return imag * q * Q / (r * r); };
 
     initial_values = [&](double r) {
-     // double foobar = 0.1 * (R_1 - R_0) + R_0;
-     // if (r > foobar)
-     //   return 0.;
-        return 10 * std::exp(- (r-5.)*(r-5.)/2.);
-	//return 10. * std::exp(-(r-1.5)*(r-1.5)/2.);
-     // else
-	//return std::sin(coef1 * r);
-	//return std::exp(-(r-((R_0+R_1)/2.))*(r - ((R_0+R_1)/2.))/ (.06));//works for diffusion
-	//return -(r * r) + (R_0 + R_1) * r - (R_0 * R_1);
-        //return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
-    };
-    /*Boundary values resulting from manufactured solution*/
-    boundary_values = [&](double r, double t) {
-       //return 0.;
-       if (r == R_0)
-	 //return std::sin(coef1 * R_0 - coef2 * t);
-	 //return 10. * std::exp(-(R_0-1.5)*(R_0-1.5)/2.);
-	 return t;
-	 
-	//return -(r * r) + (R_0 + R_1) * r - (R_0 * R_1);
-       if (r == R_1)
-	 //return std::sin(coef1 * R_1 - coef2 * t); 
-	 return 0.;
-      /* else
-	 return 0.;*/
-	 //return 0.;
-         //return .02 * std::exp(4. * ((1./(R_1-.9))-(1/(R_1+5.))+(4./(.9+5.))));
-	 //return 10. * std::exp(-(R_1-1.5)*(R_1-1.5)/2.);
+      double foobar = 0.1 * (R_1 - R_0) + R_0;
+      if (r > foobar)
+        return 0.;
+      else
+        return Mu * std::cos(M_PI / (foobar - R_0) * (r - (foobar + R_0) / 2.));
     };
 
-    //RHS resulting from ansatz solution: Psi=sin(ar - bt)
-    manufactured_solution_rhs = [&](double r, double t) {
-      /*return (r * (-2. * coef2 + coef1 * (2. + g(r) * r)) * 
-	     std::cos(coef1 * r - coef2 * t) + 
-	     (imag * q * Q - coef1 * (-2. * coef2 + coef1 * (2. + f(r))) 	     * (r * r)) * std::sin(coef1 * r - coef2 * t)) / (r * r);*/
-	/*return (-coef2 * std::cos(coef1 * r - coef2 * t)) 
-		- (coef1 * coef1) * std::sin(coef1 * r - coef2 * t)*/;//diffusion man solution  	    
-	return 0.;
+    boundary_values = [&](double r, double t) {
+      return 0.;
     };
   }
 
@@ -169,8 +129,6 @@ public:
 
   std::function<value_type(double, double)> boundary_values;
 
-  std::function<value_type(double, double)> manufactured_solution_rhs;
-
 private:
   /* Private functions: */
 
@@ -183,9 +141,6 @@ private:
   double M;
   double Q;
   double q;
-  double coef1;
-  double coef2;
-  double lam;
 };
 
 
@@ -230,9 +185,8 @@ public:
 
     GridGenerator::hyper_cube(
         triangulation, p_coefficients->R_0, p_coefficients->R_1);
-    /* IDS 0-left, 1-right */
 
-    triangulation.begin_active()->face(0)->set_boundary_id(0); // FIXME
+    triangulation.begin_active()->face(0)->set_boundary_id(1); // FIXME
     triangulation.begin_active()->face(1)->set_boundary_id(1); // FIXME
 
     triangulation.refine_global(refinement);
@@ -280,167 +234,6 @@ private:
   unsigned int order_mapping;
   unsigned int order_quadrature;
 };
-/*----------------------------------------------------------------------------*//*----------------------------------------------------------------------------*/
-
-template <int dim>
-class ManufacturedSolution : public Subscriptor
-{
-public:
-  ManufacturedSolution(const Coefficients &coefficients,
-              const Discretization<dim> &discretization)
-      : p_coefficients(&coefficients)
-      , p_discretization(&discretization)
-     
-  {
-  }
-
-  void set_time(double new_t) 
-  {
-    t=new_t;
-  }
-
-  Coefficients::value_type
-  get_manufactured_source(double r, double t);
-  
-
-  void prepare()
-  {
-    setup();
-    assemble();
-  }
-
-  void setup();
-  void assemble();
-
-  DoFHandler<dim> dof_handler;
-  SparsityPattern sparsity_pattern;
-
-  AffineConstraints<double> affine_constraints;
-
-  Vector<double> right_hand_side;
-
-
-  SmartPointer<const Coefficients> p_coefficients;
-  SmartPointer<const Discretization<dim>> p_discretization;
-private:
-  double t; 
-};
-
-
-template <int dim>
-Coefficients::value_type 
-ManufacturedSolution<dim>::get_manufactured_source(double r, double t) 
-{
-   Coefficients coefficients;
-
-   auto &manufactured_solution_rhs = coefficients.manufactured_solution_rhs;
-   auto value = manufactured_solution_rhs(/* r = */ r, /* t = */ t);
-   return value;
-}
-
-template <int dim>
-void ManufacturedSolution<dim>::setup()
-{
-  std::cout << "ManufacturedSolution<dim>::setup()" << std::endl;
-
-  const auto &triangulation = p_discretization->triangulation();
-  const auto &finite_element = p_discretization->finite_element();
-
-  dof_handler.initialize(triangulation, finite_element);
-  DoFRenumbering::Cuthill_McKee(dof_handler);
- // setup_constraints();
-
-  DynamicSparsityPattern c_sparsity(dof_handler.n_dofs(), dof_handler.n_dofs());
-  DoFTools::make_sparsity_pattern(
-      dof_handler, c_sparsity, affine_constraints, true);
-
-  sparsity_pattern.copy_from(c_sparsity);
-
-  right_hand_side.reinit(dof_handler.n_dofs());
-}
-
-template <int dim>
-void ManufacturedSolution<dim>::assemble()
-{
-  std::cout << "ManufacturedSolution<dim>::assemble()" << std::endl;
-
-  right_hand_side = 0.;
-
-  const auto &mapping = p_discretization->mapping();
-  const auto &finite_element = p_discretization->finite_element();
-  const auto &quadrature = p_discretization->quadrature();
-
-  const unsigned int dofs_per_cell = finite_element.dofs_per_cell;
-
-  Vector<double> cell_right_hand_side(dofs_per_cell);
-
-  FEValues<dim> fe_values(mapping,
-                          finite_element,
-                          quadrature,
-                          update_values | update_gradients |
-                              update_quadrature_points | update_JxW_values);
-
-  FEValuesViews::Scalar<dim> real_part(fe_values, 0);
-  FEValuesViews::Scalar<dim> imag_part(fe_values, 1);
-
-  std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
-
-  const unsigned int n_q_points = quadrature.size();
-
-  for (auto cell : dof_handler.active_cell_iterators()) {
-
-    cell_right_hand_side = 0;
-
-    fe_values.reinit(cell);
-    cell->get_dof_indices(local_dof_indices);
-
-    const auto &quadrature_points = fe_values.get_quadrature_points();
-
-    const auto imag = Coefficients::imag;
-    const auto rot_x = 1.;
-    const auto rot_y = -imag;
-
-    for (unsigned int q_point = 0; q_point < n_q_points; ++q_point) {
-
-      const auto position = quadrature_points[q_point];
-      const auto r = position[0];
-
-      const auto JxW = fe_values.JxW(q_point);
-      const auto source = get_manufactured_source(r, t); 
-
-
-      // index i for test space, index j for ansatz space
-      for (unsigned int i = 0; i < dofs_per_cell; ++i) {
-
-        const auto value_i = rot_x * real_part.value(i, q_point) +
-                             rot_y * imag_part.value(i, q_point);
-
-        const auto rhs_vec =
-              source * value_i * JxW;
-          cell_right_hand_side(i) += rhs_vec.real();
-
-      }   // for i
-    }     // for q_point
-
-
-    affine_constraints.distribute_local_to_global(
-        cell_right_hand_side, local_dof_indices, right_hand_side);
-
-   /* mass_matrix_unconstrained.add(local_dof_indices, cell_mass_matrix);
-
-    affine_constraints.distribute_local_to_global(
-        cell_stiffness_matrix, local_dof_indices, stiffness_matrix);
-
-    stiffness_matrix_unconstrained.add(local_dof_indices,
-                                       cell_stiffness_matrix);*/
-  } // cell
-
-    std::cout<<"rhs:( "<<right_hand_side(0)<<")"<<std::endl;
-}
-
-
-
-
 
 
 /* -------------------------------------------------------------------------- */
@@ -455,14 +248,9 @@ public:
               const Discretization<dim> &discretization)
       : p_coefficients(&coefficients)
       , p_discretization(&discretization)
-     
   {
   }
 
-  void set_time(double new_t) 
-  {
-    t=new_t;
-  }
   void prepare()
   {
     setup();
@@ -471,6 +259,7 @@ public:
 
   void setup();
   void assemble();
+
   void setup_constraints();
 
   DoFHandler<dim> dof_handler;
@@ -485,11 +274,8 @@ public:
   SparseMatrix<double> stiffness_matrix;
   SparseMatrix<double> stiffness_matrix_unconstrained;
 
-
   SmartPointer<const Coefficients> p_coefficients;
   SmartPointer<const Discretization<dim>> p_discretization;
-private:
-  double t;
 };
 
 
@@ -506,6 +292,7 @@ void OfflineData<dim>::setup()
   std::cout << "        " << dof_handler.n_dofs() << " DoFs" << std::endl;
 
   DoFRenumbering::Cuthill_McKee(dof_handler);
+
   setup_constraints();
 
   DynamicSparsityPattern c_sparsity(dof_handler.n_dofs(), dof_handler.n_dofs());
@@ -519,51 +306,23 @@ void OfflineData<dim>::setup()
   mass_matrix_unconstrained.reinit(sparsity_pattern);
   stiffness_matrix.reinit(sparsity_pattern);
   stiffness_matrix_unconstrained.reinit(sparsity_pattern);
-
 }
 
 
 template <int dim>
 void OfflineData<dim>::setup_constraints()
 {
-
   std::cout << "OfflineData<dim>::setup_constraints()" << std::endl;
   affine_constraints.clear();
 
-  const auto &mapping = p_discretization->mapping();
-  Coefficients coefficients;
-  const auto &boundary_values = coefficients.boundary_values;
-  std::map<types::global_dof_index, double> boundary_value_map;
-
-  const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
-    Assert(component <= 1, ExcMessage("need exactly two components"));
-
-    const auto value = boundary_values(/* r = */ p[0], /* t = */ t);
-
-    if (component == 0)
-      return value.real();
-    else
-      return value.imag();
-  };
-
-  const auto boundary_value_function =
-      to_function<dim, /*components*/ 2>(lambda);
-
   VectorTools::interpolate_boundary_values(
-      mapping,
-      dof_handler,
-      {{0, &boundary_value_function}},
-      boundary_value_map); // '0':= enforce dirichlet bc for ID 0/ID 1 nat BC
+      dof_handler, 1, ZeroFunction<dim>(2), affine_constraints);
 
-  /* Only for zero bc's */
-
-  //VectorTools::interpolate_boundary_values(
-  //    dof_handler, 1, ZeroFunction<dim>(2), affine_constraints);
- 
   DoFTools::make_hanging_node_constraints(dof_handler, affine_constraints);
 
   affine_constraints.close();
 }
+
 
 template <int dim>
 void OfflineData<dim>::assemble()
@@ -576,19 +335,15 @@ void OfflineData<dim>::assemble()
   stiffness_matrix = 0.;
   stiffness_matrix_unconstrained = 0.;
 
-
-
   const auto &mapping = p_discretization->mapping();
   const auto &finite_element = p_discretization->finite_element();
   const auto &quadrature = p_discretization->quadrature();
-  
 
   const unsigned int dofs_per_cell = finite_element.dofs_per_cell;
 
   FullMatrix<double> cell_nodal_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_mass_matrix(dofs_per_cell, dofs_per_cell);
   FullMatrix<double> cell_stiffness_matrix(dofs_per_cell, dofs_per_cell);
-
 
   FEValues<dim> fe_values(mapping,
                           finite_element,
@@ -608,7 +363,6 @@ void OfflineData<dim>::assemble()
     cell_nodal_mass_matrix = 0;
     cell_mass_matrix = 0;
     cell_stiffness_matrix = 0.;
-
 
     fe_values.reinit(cell);
     cell->get_dof_indices(local_dof_indices);
@@ -630,7 +384,6 @@ void OfflineData<dim>::assemble()
       const auto d = p_coefficients->d(r);
 
       const auto JxW = fe_values.JxW(q_point);
-      dealii::Tensor<1,dim,double> u_grad;
 
       // index i for test space, index j for ansatz space
       for (unsigned int i = 0; i < dofs_per_cell; ++i) {
@@ -640,8 +393,6 @@ void OfflineData<dim>::assemble()
 
         const auto grad_i = rot_x * real_part.gradient(i, q_point) +
                             rot_y * imag_part.gradient(i, q_point);
-
-	//u_grad += old_solution[local_dof_indices[i]]*fe_values.shape_grad(i,q_point)*JxW;//FIXME
 
         for (unsigned int j = 0; j < dofs_per_cell; ++j) {
 
@@ -655,17 +406,13 @@ void OfflineData<dim>::assemble()
           cell_nodal_mass_matrix(i, j) += nodal_mass_term.real();
 
           const auto mass_term = (c * value_i - 2. * grad_i[0]) * value_j * JxW;
-	  //const auto mass_term = (c * value_i) * value_j * JxW;//mass for diff prob.  
           cell_mass_matrix(i, j) += mass_term.real();
 
           const auto stiffness_term =
               (a * value_i - b * grad_i[0]) * grad_j[0] * JxW +
-              d * value_i * value_j * JxW;//full term
-	  /*const auto stiffness_term = 
-	      (- b * grad_i[0]) * grad_j[0] * JxW;*///diffusion prob
-	  /*const auto stiffness_term =
-	    (a * value_i - b * grad_i[0]) * grad_j[0] * JxW;*/ //adv-diff
-	  cell_stiffness_matrix(i,j) += stiffness_term.real();
+              d * value_i * value_j * JxW;
+          cell_stiffness_matrix(i, j) += stiffness_term.real();
+
         } // for j
       }   // for i
     }     // for q_point
@@ -677,14 +424,15 @@ void OfflineData<dim>::assemble()
         cell_mass_matrix, local_dof_indices, mass_matrix);
 
     mass_matrix_unconstrained.add(local_dof_indices, cell_mass_matrix);
+
     affine_constraints.distribute_local_to_global(
         cell_stiffness_matrix, local_dof_indices, stiffness_matrix);
 
     stiffness_matrix_unconstrained.add(local_dof_indices,
                                        cell_stiffness_matrix);
-
   } // cell
 }
+
 
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
@@ -693,10 +441,9 @@ template <int dim>
 class TimeStep : public ParameterAcceptor
 {
 public:
-  TimeStep(const OfflineData<dim> &offline_data, ManufacturedSolution<dim> &manufactured)
+  TimeStep(const OfflineData<dim> &offline_data)
       : ParameterAcceptor("C - TimeStep")
       , p_offline_data(&offline_data)
-      , p_manufactured(&manufactured)
   {
     kappa = 0.1;
     add_parameter("kappa", kappa, "time step size");
@@ -705,16 +452,16 @@ public:
     add_parameter("theta", theta, "theta paramter of the theta scheme");
 
     linear_solver_limit = 1000.;
-    add_parameter("linear_solver_limit", linear_solver_limit, "max number of iterations in newton scheme for linear (left) side");
+    add_parameter("linear_solver_limit", linear_solver_limit, "blah blah");
 
     linear_solver_tol = 1.0e-12;
-    add_parameter("linear_solver_tol", linear_solver_tol, "tolerance to determine if newton step should keep running on left");
+    add_parameter("linear_solver_tol", linear_solver_tol, "blah blah2");
 
-    nonlinear_solver_limit = 100.;
-    add_parameter("nonlinear_solver_limit", nonlinear_solver_limit, "max number of iterations in newton scheme for nonlinear (right) side");
+    nonlinear_solver_limit = 10.;
+    add_parameter("nonlinear_solver_limit", nonlinear_solver_limit, "blah blah3");
 
     nonlinear_solver_tol = 1.0e-12;
-    add_parameter("nonlinear_solver_tol", nonlinear_solver_tol, "tolerance to determine if newton step should keep running on right");
+    add_parameter("nonlinear_solver_tol", nonlinear_solver_tol, "blah blah4");
   }
 
   void prepare();
@@ -722,12 +469,9 @@ public:
   /* Updates the vector with the solution for the next time step: */
   void step(Vector<double> &old_solution, double new_t) const;
 
-
   SmartPointer<const OfflineData<dim>> p_offline_data;
-  SmartPointer<ManufacturedSolution<dim>> p_manufactured;
   double kappa;
   double theta;
-  double lam;
 
   unsigned int linear_solver_limit;
   double linear_solver_tol;
@@ -737,7 +481,6 @@ public:
 private:
   SparseMatrix<double> linear_part;
   SparseDirectUMFPACK linear_part_inverse;
-
 };
 
 
@@ -746,17 +489,16 @@ void TimeStep<dim>::prepare()
 {
   std::cout << "TimeStep<dim>::prepare()" << std::endl;
   const auto &offline_data = *p_offline_data;
-  //const auto &manufactured = *p_manufactured;
 
   linear_part.reinit(offline_data.sparsity_pattern);
   const auto &M_c = offline_data.mass_matrix;
   const auto &S_c = offline_data.stiffness_matrix;
 
+  /* linear_part = M_c + (1. - theta) * kappa * S_c */
   linear_part.copy_from(M_c);
   linear_part.add((1. - theta) * kappa, S_c);
 
   linear_part_inverse.initialize(linear_part);
-
 }
 
 
@@ -764,8 +506,7 @@ template<int dim>
 void apply_boundary_values(const OfflineData<dim> &offline_data,
                            const Coefficients &coefficients,
                            double t,
-                           Vector<double> &vector_new,
-			   Vector<double> &vector_old)
+                           Vector<double> &vector)
 {
   const auto &mapping = offline_data.p_discretization->mapping();
   const auto &dof_handler = offline_data.dof_handler;
@@ -773,17 +514,11 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
   const auto &boundary_values = coefficients.boundary_values;
 
   std::map<types::global_dof_index, double> boundary_value_map;
-  //std::cout<<"pre Vector_old at position zero is: "<<vector_old[0]<<std::endl;
-  //t = 5.;
-  t = (vector_old[1]-vector_old[0])/((500.-0.5)/2048.);
-
- // std::cout<<"post Vector_old at position zero is: "<<vector_old[0]<<std::endl;
 
   const auto lambda = [&](const Point<dim> &p, const unsigned int component) {
     Assert(component <= 1, ExcMessage("need exactly two components"));
 
     const auto value = boundary_values(/* r = */ p[0], /* t = */ t);
-    std::cout<<"boundary value function output is: "<<value<<std::endl;
 
     if (component == 0)
       return value.real();
@@ -797,51 +532,38 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
   VectorTools::interpolate_boundary_values(
       mapping,
       dof_handler,
-      {{0, &boundary_value_function}},
+      {{1, &boundary_value_function}},
       boundary_value_map);
 
   for (auto it : boundary_value_map) {
-
-    //std::cout<<"global dofs: "<<boundary_value_map[0]<<std::endl;
-    vector_new[it.first] = it.second;
+    vector[it.first] = it.second;
   }
-
 }
 
 
 template <int dim>
-void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
-
+void TimeStep<dim>::step(Vector<double> &old_solution, double new_t) const
 {
   const auto &offline_data = *p_offline_data;
   const auto &coefficients = *offline_data.p_coefficients;
   const auto &affine_constraints = offline_data.affine_constraints;
-  auto &manufactured = *p_manufactured;
 
   const auto M_c = linear_operator(offline_data.mass_matrix);
   const auto S_c = linear_operator(offline_data.stiffness_matrix);
   const auto M_u = linear_operator(offline_data.mass_matrix_unconstrained);
   const auto S_u = linear_operator(offline_data.stiffness_matrix_unconstrained);
 
-
   GrowingVectorMemory<Vector<double>> vector_memory;
   typename VectorMemory<Vector<double>>::Pointer p_new_solution(vector_memory);
   auto &new_solution = *p_new_solution;
 
-
-
   new_solution = old_solution;
-  apply_boundary_values(offline_data, coefficients, new_t, new_solution, old_solution);
-
-
-  //manufactured.set_time(new_t); // FIXME this is slow
-  //manufactured.prepare(); // FIXME this is slow
+  apply_boundary_values(offline_data, coefficients, new_t, new_solution);
 
   for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
     Vector<double> residual = M_u * (new_solution - old_solution) +
                               kappa * (1. - theta) * S_u * new_solution +
-                              theta * kappa * S_u * old_solution;// + manufactured.right_hand_side;
-
+                              theta * kappa * S_u * old_solution;
     affine_constraints.set_zero(residual);
 
     if (residual.linfty_norm() < nonlinear_solver_tol)
@@ -849,36 +571,29 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
 
     const auto system_matrix = linear_operator(linear_part);
 
-
     SolverControl solver_control(linear_solver_limit, linear_solver_tol);
     SolverGMRES<> solver(solver_control);
 
     const auto system_matrix_inverse =
         inverse_operator(system_matrix, solver, linear_part_inverse);
 
-
     Vector<double> update = system_matrix_inverse * (-1. * residual);
-
     affine_constraints.set_zero(update);
 
-
     new_solution += update;
-
-    }
+  }
 
   {
     Vector<double> residual = M_u * (new_solution - old_solution) +
                               kappa * (1. - theta) * S_u * new_solution +
-                              theta * kappa * S_u * old_solution;// + manufactured.right_hand_side;
-
+                              theta * kappa * S_u * old_solution;
     affine_constraints.set_zero(residual);
-    std::cout<<"norm of residual: "<<residual.linfty_norm()<<std::endl;
+
     if (residual.linfty_norm() > nonlinear_solver_tol)
       throw ExcMessage("non converged");
   }
 
   old_solution = new_solution;
-
 }
 
 
@@ -929,6 +644,7 @@ void TimeLoop<dim>::run()
 
   const double kappa = time_step.kappa;
 
+
   unsigned int n = 0;
   double t = 0;
   for (; t <= t_end + 1.0e-10;) {
@@ -937,6 +653,7 @@ void TimeLoop<dim>::run()
 
     if (n == 0) {
       std::cout << "    interpolate initial values" << std::endl;
+
       /* interpolate initial conditions: */
 
       const auto &initial_values = coefficients.initial_values;
@@ -951,37 +668,39 @@ void TimeLoop<dim>::run()
         else
           return value.imag();
       };
+
       VectorTools::interpolate(mapping,
                                dof_handler,
                                to_function<dim, /*components*/ 2>(lambda),
                                solution);
-
     } else {
+
       time_step.step(solution, t);
 
     }
 
-//  Only run output every x steps
-    if((n > 0) && (n % 100 == 0))
     {
       /* output: */
       dealii::DataOut<dim> data_out;
       data_out.attach_dof_handler(dof_handler);
       data_out.add_data_vector(solution, "solution");
-
-
       data_out.build_patches(/* FIXME: adjust for DEGREE of ansatz */);
 
-      std::string name = basename + std::to_string(n);
+      std::string name = basename + "-" + std::to_string(n);
 
+      {
+        std::ofstream output(name + std::string(".gnuplot"));
+        data_out.write_gnuplot(output);
+      }
       {
         std::ofstream output(name + std::string(".vtk"));
         data_out.write_vtk(output);
-
       }
     }
+
     n += 1;
     t += kappa;
+
   } /* for */
 }
 
@@ -996,12 +715,12 @@ int main()
 
   Coefficients coefficients;
   Discretization<dim> discretization(coefficients);
-  ManufacturedSolution<dim> manufactured(coefficients, discretization);
   OfflineData<dim> offline_data(coefficients, discretization);
-  TimeStep<dim> time_step(offline_data, manufactured);
+  TimeStep<dim> time_step(offline_data);
   TimeLoop<dim> time_loop(time_step);
+
   ParameterAcceptor::initialize("gravwave.prm");
-  manufactured.prepare();
+
   offline_data.prepare();
   time_step.prepare();
 
