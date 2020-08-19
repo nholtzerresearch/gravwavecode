@@ -123,7 +123,7 @@ public:
        //return 0.;
        if (r == R_0)
 	 //return std::sin(coef1 * R_0 - coef2 * t);
-	 //return 10. * std::exp(-(R_0-1.5)*(R_0-1.5)/2.);
+	 //return 10. * std::exp(-(R_0-5.)*(R_0-5.)/2.);
 	 return t;
 	 
 	//return -(r * r) + (R_0 + R_1) * r - (R_0 * R_1);
@@ -775,7 +775,7 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
   std::map<types::global_dof_index, double> boundary_value_map;
   //std::cout<<"pre Vector_old at position zero is: "<<vector_old[0]<<std::endl;
   //t = 5.;
-  t = (vector_old[1]-vector_old[0])/((500.-0.5)/2048.);
+  t = (vector_old[2]-vector_old[1])/((500.-0.5)/512.);
 
  // std::cout<<"post Vector_old at position zero is: "<<vector_old[0]<<std::endl;
 
