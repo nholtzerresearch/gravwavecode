@@ -1,0 +1,225 @@
+time step n = 0	t = 0
+    interpolate initial values
+time step n = 1	t = 0.1
+boundary value function output is: (0.316658,0)
+norm of residual: 1.13687e-14
+time step n = 2	t = 0.2
+boundary value function output is: (0.194167,0)
+norm of residual: 1.7053e-14
+time step n = 3	t = 0.3
+boundary value function output is: (0.0687216,0)
+norm of residual: 2.27374e-14
+time step n = 4	t = 0.4
+boundary value function output is: (0.0243227,0)
+norm of residual: 1.13687e-14
+time step n = 5	t = 0.5
+boundary value function output is: (0.00860854,0)
+norm of residual: 8.52651e-15
+time step n = 6	t = 0.6
+boundary value function output is: (0.00304683,0)
+norm of residual: 8.52651e-15
+time step n = 7	t = 0.7
+boundary value function output is: (0.00107837,0)
+norm of residual: 1.13687e-14
+time step n = 8	t = 0.8
+boundary value function output is: (0.000381666,0)
+norm of residual: 8.52651e-15
+time step n = 9	t = 0.9
+boundary value function output is: (0.000135083,0)
+norm of residual: 8.52651e-15
+time step n = 10	t = 1
+boundary value function output is: (4.78102e-05,0)
+norm of residual: 1.13687e-14
+time step n = 11	t = 1.1
+boundary value function output is: (1.69215e-05,0)
+norm of residual: 8.52651e-15
+time step n = 12	t = 1.2
+boundary value function output is: (5.98903e-06,0)
+norm of residual: 1.13687e-14
+time step n = 13	t = 1.3
+boundary value function output is: (2.1197e-06,0)
+norm of residual: 8.52651e-15
+time step n = 14	t = 1.4
+boundary value function output is: (7.50234e-07,0)
+norm of residual: 8.52651e-15
+time step n = 15	t = 1.5
+boundary value function output is: (2.6554e-07,0)
+norm of residual: 1.13687e-14
+time step n = 16	t = 1.6
+boundary value function output is: (9.39863e-08,0)
+norm of residual: 8.52651e-15
+time step n = 17	t = 1.7
+boundary value function output is: (3.32615e-08,0)
+norm of residual: 8.52651e-15
+time step n = 18	t = 1.8
+boundary value function output is: (1.17697e-08,0)
+norm of residual: 5.68434e-15
+time step n = 19	t = 1.9
+boundary value function output is: (4.16423e-09,0)
+norm of residual: 8.52651e-15
+time step n = 20	t = 2
+boundary value function output is: (1.4724e-09,0)
+norm of residual: 8.52651e-15
+time step n = 21	t = 2.1
+boundary value function output is: (5.19513e-10,0)
+norm of residual: 8.52651e-15
+time step n = 22	t = 2.2
+boundary value function output is: (1.8369e-10,0)
+norm of residual: 5.68434e-15
+time step n = 23	t = 2.3
+boundary value function output is: (6.49938e-11,0)
+norm of residual: 8.52651e-15
+time step n = 24	t = 2.4
+boundary value function output is: (2.01236e-11,0)
+norm of residual: 7.10543e-15
+time step n = 25	t = 2.5
+boundary value function output is: (4.95011e-12,0)
+norm of residual: 8.52651e-15
+time step n = 26	t = 2.6
+boundary value function output is: (-1.32923e-12,0)
+norm of residual: 5.68434e-15
+time step n = 27	t = 2.7
+boundary value function output is: (-2.31771e-12,0)
+norm of residual: 1.13687e-14
+time step n = 28	t = 2.8
+boundary value function output is: (1.26858e-12,0)
+norm of residual: 8.52651e-15
+time step n = 29	t = 2.9
+boundary value function output is: (-1.70208e-12,0)
+norm of residual: 1.13687e-14
+time step n = 30	t = 3
+boundary value function output is: (-3.87809e-12,0)
+norm of residual: 5.68434e-15
+time step n = 31	t = 3.1
+boundary value function output is: (-5.94724e-13,0)
+norm of residual: 8.52651e-15
+time step n = 32	t = 3.2
+boundary value function output is: (-6.26792e-12,0)
+norm of residual: 8.52651e-15
+time step n = 33	t = 3.3
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 34	t = 3.4
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 35	t = 3.5
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 36	t = 3.6
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 37	t = 3.7
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 38	t = 3.8
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 39	t = 3.9
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 40	t = 4
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 41	t = 4.1
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 42	t = 4.2
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 43	t = 4.3
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 44	t = 4.4
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 45	t = 4.5
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 46	t = 4.6
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 47	t = 4.7
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 48	t = 4.8
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 49	t = 4.9
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 50	t = 5
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 51	t = 5.1
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 52	t = 5.2
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 53	t = 5.3
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 54	t = 5.4
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 55	t = 5.5
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 56	t = 5.6
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 57	t = 5.7
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 58	t = 5.8
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 59	t = 5.9
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 60	t = 6
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 61	t = 6.1
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 62	t = 6.2
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 63	t = 6.3
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 64	t = 6.4
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 65	t = 6.5
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 66	t = 6.6
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 67	t = 6.7
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 68	t = 6.8
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 69	t = 6.9
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 70	t = 7
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 71	t = 7.1
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 72	t = 7.2
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 73	t = 7.3
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+time step n = 74	t = 7.4
+boundary value function output is: (-1.03978e-11,0)
+norm of residual: 0.0988396
+
