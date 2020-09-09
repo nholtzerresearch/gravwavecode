@@ -94,24 +94,18 @@ public:
       return 2. * f_prime(r) + 2. * (f(r) + imag * q * Q) / r;
     };
 
-    //a = [&](double r) { return f_prime(r) + 2.*(f(r)-imag * q * Q + 1.) / r; };
-    a = [&](double r) { return g(r) + 2. / r - f_prime(r); };//old a
-    //a = [&](double r) { return g(r) - 2./ r - f_prime(r);}; //new a
-    //a = [&](double r) { return 1.; }; //'a' 0.: coef for simple diff prob
-    b = [&](double r) { return 2. + f(r); };//old b
-    //b = [&](double r) { return 2. - f(r); };//new b
-    //b = [&](double r) { return -1.;}; 
-    c = [&](double r) { return 2. / r; };
-    //c = [&](double r) { return 1.;};
-    //d = [&](double r) { return 1.;};
-    d = [&](double r) { return imag * q * Q / (r * r); };
+    a = [&](double r) { return g(r) + 2. / r - f_prime(r); };
+    b = [&](double r) { return 2. + f(r); };
+    c = [&](double r) { return (2.+ 2. * imag * q * Q) / r; };
+    d = [&](double r) { return (2. * q * q * Q * Q + imag * q * Q)/ (r * r); };
 
     initial_values = [&](double r) {
      // double foobar = 0.1 * (R_1 - R_0) + R_0;
      // if (r > foobar)
      //   return 0.;
-        return 10 * std::exp(- (r-5.)*(r-5.)/2.);
-	//return 10. * std::exp(-(r-1.5)*(r-1.5)/2.);
+        return 10.*std::exp(- (r-5.)*(r-5.)/(2.*1.));
+	//return 10. * std::exp(-(r-10)*(r-10)/2.);
+	//return std::exp(-(r-((R_0+R_1)/2.))*(r-((R_0+R_1)/2.))/.06);//Plot1
      // else
 	//return std::sin(coef1 * r);
 	//return std::exp(-(r-((R_0+R_1)/2.))*(r - ((R_0+R_1)/2.))/ (.06));//works for diffusion
@@ -125,7 +119,7 @@ public:
 	 //return std::sin(coef1 * R_0 - coef2 * t);
 	 //return 10. * std::exp(-(R_0-5.)*(R_0-5.)/2.);
 	 return t;
-	 
+	 //return 0.;
 	//return -(r * r) + (R_0 + R_1) * r - (R_0 * R_1);
        if (r == R_1)
 	 //return std::sin(coef1 * R_1 - coef2 * t); 
@@ -222,6 +216,7 @@ public:
     add_parameter(
         "order quadrature", order_quadrature, "order of the quadrature rule");
   }
+  unsigned int refinement;
 
   void parse_parameters_callback()
   {
@@ -274,7 +269,7 @@ private:
   std::unique_ptr<const FiniteElement<dim>> p_finite_element;
   std::unique_ptr<const Quadrature<dim>> p_quadrature;
 
-  unsigned int refinement;
+  //unsigned int refinement;
 
   unsigned int order_finite_element;
   unsigned int order_mapping;
@@ -659,7 +654,7 @@ void OfflineData<dim>::assemble()
           cell_mass_matrix(i, j) += mass_term.real();
 
           const auto stiffness_term =
-              (a * value_i - b * grad_i[0]) * grad_j[0] * JxW +
+              (a * value_i - b * grad_i[0]) * grad_j[0] * JxW -
               d * value_i * value_j * JxW;//full term
 	  /*const auto stiffness_term = 
 	      (- b * grad_i[0]) * grad_j[0] * JxW;*///diffusion prob
@@ -771,11 +766,17 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
   const auto &dof_handler = offline_data.dof_handler;
 
   const auto &boundary_values = coefficients.boundary_values;
+  const auto &r_0 = coefficients.R_0;
+  const auto &r_1 = coefficients.R_1;
+  const auto &refine = offline_data.p_discretization->refinement;
+  
+  std::cout<<"My refinement is " << refine << std::endl;
+
 
   std::map<types::global_dof_index, double> boundary_value_map;
   //std::cout<<"pre Vector_old at position zero is: "<<vector_old[0]<<std::endl;
   //t = 5.;
-  t = (vector_old[2]-vector_old[1])/((500.-0.5)/512.);
+  t = (vector_old[2]-vector_old[1])/((r_1-r_0)/pow(2.,refine));
 
  // std::cout<<"post Vector_old at position zero is: "<<vector_old[0]<<std::endl;
 
@@ -803,7 +804,10 @@ void apply_boundary_values(const OfflineData<dim> &offline_data,
   for (auto it : boundary_value_map) {
 
     //std::cout<<"global dofs: "<<boundary_value_map[0]<<std::endl;
-    vector_new[it.first] = it.second;
+    //vector[it.first] = it.second;
+
+      vector_new[it.first] = it.second;
+
   }
 
 }
@@ -831,6 +835,8 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t) const
 
 
   new_solution = old_solution;
+  //apply_boundary_values(offline_data, coefficients, new_t, new_solution);
+  
   apply_boundary_values(offline_data, coefficients, new_t, new_solution, old_solution);
 
 
@@ -962,7 +968,7 @@ void TimeLoop<dim>::run()
     }
 
 //  Only run output every x steps
-    if((n > 0) && (n % 100 == 0))
+    //if((n > 0) && (n % 100 == 0))
     {
       /* output: */
       dealii::DataOut<dim> data_out;
