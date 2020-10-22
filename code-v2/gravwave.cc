@@ -481,13 +481,13 @@ public:
   SparseMatrix<double> stiffness_matrix;
   SparseMatrix<double> stiffness_matrix_unconstrained;
 
-  FullMatrix<double> nodal_mass_matrix_full;
-  FullMatrix<double> inner_product_matrix_full;
+  //FullMatrix<double> nodal_mass_matrix_full;
+  //FullMatrix<double> inner_product_matrix_full;
 
-  FullMatrix<double> mass_matrix_full;
-  FullMatrix<double> mass_matrix_unconstrained_full;
-  FullMatrix<double> stiffness_matrix_full;
-  FullMatrix<double> stiffness_matrix_unconstrained_full;
+  //FullMatrix<double> mass_matrix_full;
+ // FullMatrix<double> mass_matrix_unconstrained_full;
+  //FullMatrix<double> stiffness_matrix_full;
+ // FullMatrix<double> stiffness_matrix_unconstrained_full;
 
   SmartPointer<const Coefficients> p_coefficients;
   SmartPointer<const Discretization<dim>> p_discretization;
@@ -582,14 +582,6 @@ void OfflineData<dim>::assemble()
   stiffness_matrix_unconstrained = 0.;
 
 
-  nodal_mass_matrix_full = 0.;
-  inner_product_matrix_full = 0.;
-
-  mass_matrix_full = 0.;
-  mass_matrix_unconstrained_full = 0.;
-  stiffness_matrix_full = 0.;
-  stiffness_matrix_unconstrained_full = 0.;
-
   const auto &mapping = p_discretization->mapping();
   const auto &finite_element = p_discretization->finite_element();
   const auto &quadrature = p_discretization->quadrature();
@@ -676,7 +668,7 @@ void OfflineData<dim>::assemble()
 
           const auto stiffness_term =
               (a * value_i - b * grad_i[0]) * grad_j[0] * JxW -
-              d * value_i * value_j * JxW;//full term
+              d * value_i * value_j * JxW;
 	  /*const auto stiffness_term = 
 	      (- b * grad_i[0]) * grad_j[0] * JxW;*///diffusion prob
 	  /*const auto stiffness_term =
@@ -692,37 +684,26 @@ void OfflineData<dim>::assemble()
         cell_nodal_mass_matrix, local_dof_indices, nodal_mass_matrix);
     
 
-    nodal_mass_matrix_full.copy_from(nodal_mass_matrix);
-
 
     affine_constraints.distribute_local_to_global(
         cell_inner_product_matrix, local_dof_indices, inner_product_matrix);
 
-    inner_product_matrix_full.copy_from(inner_product_matrix);
 
     affine_constraints.distribute_local_to_global(
         cell_mass_matrix, local_dof_indices, mass_matrix);
 
-    mass_matrix_full.copy_from(mass_matrix);
-
-    //for(unsigned int i=0; i<dofs_per_cell;++i)
-    //	for(unsigned int j=0; j<dofs_per_cell; ++j)
-    //		mass_matrix_unconstrained(local_dof_indices[i],local_dof_indices[j]) += cell_mass_matrix(i,j);
 
     mass_matrix_unconstrained.add(local_dof_indices, cell_mass_matrix);
 
-    mass_matrix_unconstrained_full.copy_from(mass_matrix_unconstrained);
 
     affine_constraints.distribute_local_to_global(
         cell_stiffness_matrix, local_dof_indices, stiffness_matrix);
 
-    stiffness_matrix_full.copy_from(stiffness_matrix);
   //  for(unsigned int i=0; i<dofs_per_cell;++i)
   //	for(unsigned int j=0; j<dofs_per_cell; ++j)
   //		stiffness_matrix_unconstrained(local_dof_indices[i],local_dof_indices[j]) += cell_stiffness_matrix(i,j);
 
     stiffness_matrix_unconstrained.add(local_dof_indices,cell_stiffness_matrix);
-    stiffness_matrix_unconstrained_full.copy_from(stiffness_matrix_unconstrained);
 
 
   } // cell
@@ -776,13 +757,13 @@ public:
   unsigned int nonlinear_solver_limit;
   double nonlinear_solver_tol;
 
-  //SparseMatrix<double> nonlinear_part;
-  //SparseDirectUMFPACK nonlinear_part_inverse;
-  FullMatrix<double> nonlinear_part;
-  FullMatrix<double> linear_part;
+  SparseMatrix<double> nonlinear_part;
+  SparseDirectUMFPACK nonlinear_part_inverse;
+  //FullMatrix<double> nonlinear_part;
+  //FullMatrix<double> linear_part;
 
-  //SparseMatrix<double> linear_part;
- // SparseDirectUMFPACK linear_part_inverse;
+  SparseMatrix<double> linear_part;
+  SparseDirectUMFPACK linear_part_inverse;
 
   FullMatrix<double> Kronecker_matrix;
 
@@ -805,27 +786,26 @@ void TimeStep<dim>::prepare()
   //const auto &manufactured = *p_manufactured;
 
 
-  //linear_part.reinit(offline_data.sparsity_pattern);
-  auto &M_c = offline_data.mass_matrix_full;
-  auto &S_c = offline_data.stiffness_matrix_full;
+  linear_part.reinit(offline_data.sparsity_pattern);
+  auto &M_c = offline_data.mass_matrix;
+  auto &S_c = offline_data.stiffness_matrix;
 
 
   const unsigned int dofs_per_cell = finite_element.dofs_per_cell;
 
   linear_part.copy_from(M_c);
 
-  for(unsigned int i=0; i<dofs_per_cell; ++i)
-      for(unsigned int j=0; j<dofs_per_cell; ++j)
-          linear_part(i,j) += (1. - theta) * kappa * S_c(i,j);
-  std::cout << "I made it past the first multiplication" << std::endl;
-  //linear_part.add((1. - theta) * kappa, S_c);
+  //for(unsigned int i=0; i<dofs_per_cell; ++i)
+  //    for(unsigned int j=0; j<dofs_per_cell; ++j)
+  //        linear_part(i,j) += (1. - theta) * kappa * S_c(i,j);
+  //std::cout << "I made it past the first multiplication" << std::endl;
+  linear_part.add((1. - theta) * kappa, S_c);
 
- // linear_part_inverse.initialize(linear_part);
+  linear_part_inverse.initialize(linear_part);
 
   //nonlinear_part.reinit(offline_data.sparsity_pattern);
-  auto &X = offline_data.inner_product_matrix_full;
 
-  nonlinear_part.copy_from(X);
+  nonlinear_part.copy_from(M_c);
 
  // nonlinear_part_inverse.initialize(linear_part);
 
@@ -903,13 +883,14 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t)
   const auto lam = coefficients.lam;
   std::cout<<"lambda in Time step  = "<<lam<<std::endl;
 
-  const auto M_c = linear_operator(offline_data.mass_matrix_full);
-  const auto S_c = linear_operator(offline_data.stiffness_matrix_full);
-  const auto M_u = linear_operator(offline_data.mass_matrix_unconstrained_full);
-  const auto S_u = linear_operator(offline_data.stiffness_matrix_unconstrained_full);
-  const auto X   = linear_operator(offline_data.inner_product_matrix_full);
+  const auto M_c = linear_operator(offline_data.mass_matrix);
+  const auto S_c = linear_operator(offline_data.stiffness_matrix);
+  const auto M_u = linear_operator(offline_data.mass_matrix_unconstrained);
+  const auto S_u = linear_operator(offline_data.stiffness_matrix_unconstrained);
+  const auto X   = linear_operator(offline_data.inner_product_matrix);
   const unsigned int dofs_per_cell = finite_element.dofs_per_cell;
-
+  Vector<double> temp;
+  Vector<double> temp1;
   GrowingVectorMemory<Vector<double>> vector_memory;
   typename VectorMemory<Vector<double>>::Pointer p_new_solution(vector_memory);
   auto &new_solution = *p_new_solution;
@@ -927,67 +908,40 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t)
   for (unsigned int m = 0; m < nonlinear_solver_limit; ++m) {
     Vector<double> residual = M_u * (new_solution - old_solution) +
                               kappa * (1. - theta) * S_u * new_solution +
-                              theta * kappa * S_u * old_solution - kappa * (1.- theta) * lam * new_solution.norm_sqr() * new_solution - kappa * theta * lam * old_solution.norm_sqr() * old_solution;
-    std::cout << "I made it past the residual multiplication" << std::endl;
+                              theta * kappa * S_u * old_solution;
+
+    residual.add(-1. * kappa * (1-theta) * lam * offline_data.mass_matrix.matrix_scalar_product(new_solution,new_solution),new_solution);
+    residual.add(-1. * kappa * theta * lam * offline_data.mass_matrix.matrix_scalar_product(old_solution,old_solution),old_solution);
+
+
+
     affine_constraints.set_zero(residual);
 
     if (residual.linfty_norm() < nonlinear_solver_tol)
       break;
-    //double old_solution_normsq = -old_solution.norm_sqr(); 
-    double new_solution_normsq = -new_solution.norm_sqr();
 
-    //const unsigned int k = old_solution.size();
-    const unsigned int k = new_solution.size();
-    FullMatrix<double>Kronecker_matrix(k,k);
-    for(unsigned int i=0; i<k; ++i)
-        for(unsigned int j=0; j<k; ++j)
-	  //Kronecker_matrix(i,j) = old_solution[i]*old_solution[j];
-	    Kronecker_matrix(i,j) = new_solution[i]*new_solution[j];
-    std::cout<< " I made it past the Kronecker_matrix mult line" << std::endl;
-    FullMatrix<double>nonlinear_part_full;
-    nonlinear_part_full.copy_from(nonlinear_part);  
-    FullMatrix<double>nonlinear_part_inverse;
+    temp = M_c * new_solution; // outerproduct Psi^m x Psi^m
+    double temp_coef = -2.* lam * kappa * (1- theta);
+    temp = temp_coef * temp; //-2*lam*kappa*(1-theta)*Psi^m x Psi^m
     
-  //double nonlinear_part_coef = - kappa * (1.- theta) * lam * old_solution_normsq;
-  
-    double nonlinear_part_coef = - kappa * (1.- theta) * lam * new_solution_normsq;
-    double Kronecker_matrix_coef = -2.* lam * kappa * (1- theta);
-    nonlinear_part_full *= nonlinear_part_coef; // -k(1- theta) lambda |Psi|^2*X
-    std::cout << "I made it past the *= of nonlinear_part_full" << std::endl;
-    Kronecker_matrix *= Kronecker_matrix_coef; //(-2.* lam * kappa * (1- theta)* Kronecker_matrix)
-    std::cout << " I made it past the *= of the Kronecker_matrix" << std::endl;
-    for(unsigned int i=0; i<dofs_per_cell; ++i)
-	for(unsigned int j=0; j<dofs_per_cell; ++j)
-		nonlinear_part_full(i,j) += Kronecker_matrix(i,j);
-    //nonlinear_part_full.add(1.,Kronecker_matrix); //-k(1- theta) lambda |Psi|^2*X - 2k(1-theta)lambda Kronecker_matrix
+    double temp1_coef = - kappa * (1.- theta) * lam;
+    temp1 = temp1_coef * offline_data.mass_matrix.matrix_scalar_product(new_solution,new_solution); // -kappa*lam*(1-theta)*|Psi^m|^2 X
     
-   
-    for(unsigned int i=0; i<dofs_per_cell; ++i)
-	for(unsigned int j=0; j<dofs_per_cell; ++j)
-		nonlinear_part_full(i,j) += linear_part(i,j);
-    //nonlinear_part_full.add(1., linear_part);
+    linear_part.add(1., temp);
+    linear_part.add(1.,temp1); //linear_part now contains nonlinear terms: [M_c + k(1-theta)A_c-kappa*lam*(1-theta)*|Psi^m|^2                                                                             X-2*lam*kappa*(1-theta)*Psi^m x Psi^m]
     
-    //std::cout<<"this is the nonlinear_part_full: " << nonlinear_part_full<<std::endl;
-    auto system_matrix = linear_operator(nonlinear_part_full);//deleted const
+    auto system_matrix = linear_operator(linear_part);//deleted const
 
-    //std::cout<<"this is the system_matrix: " << system_matrix<<std::endl;
 
     SolverControl solver_control(linear_solver_limit, linear_solver_tol);
     SolverGMRES<> solver(solver_control);
 
     auto system_matrix_inverse =
-        inverse_operator(system_matrix, solver, nonlinear_part_inverse);//deleted const
-    //std::cout<<"this is the nonlinear_part_inverse: " << nonlinear_part_inverse<<std::endl;
-
-    std::cout << " this is the residual " << residual << std::endl;
+        inverse_operator(system_matrix, solver, linear_part_inverse);//deleted const
 
     std::cout << " I made it to the update line" << std::endl;
     Vector<double> update = system_matrix_inverse * (-1. * residual);
-  //  Vector<double> update;
-   // system_matrix_inverse.vmult(update, -1*residual);
-   /* for(unsigned int i=0; i<dofs_per_cell; ++i)
-	for(unsigned int j=0; j<dofs_per_cell; ++j)
-		update[i] += (system_matrix_inverse[i][j]*-1*residual[j]);*/
+
     std::cout << " I made it past the update multiplication" <<std::endl;
     affine_constraints.set_zero(update);
 
