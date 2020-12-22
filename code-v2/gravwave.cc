@@ -104,7 +104,7 @@ public:
      // double foobar = 0.1 * (R_1 - R_0) + R_0;
      // if (r > foobar)
      //   return 0.;
-        return 10.*std::exp(- (r-5.)*(r-5.)/(2.*1.));
+        return .01*std::exp(- (r-5.)*(r-5.)/(2.*1.));
 	//return 10. * std::exp(-(r-10)*(r-10)/2.);
 	//return std::exp(-(r-((R_0+R_1)/2.))*(r-((R_0+R_1)/2.))/.06);//Plot1
      // else
@@ -934,7 +934,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution,double new_t)
     Vector<double> residual = M_u * (new_solution - old_solution) +
                               kappa * (1. - theta) * S_u * new_solution +
                               theta * kappa * S_u * old_solution;
-    residual.add(-1.*kappa * (1-theta) * lam * offline_data.mass_matrix_unconstrained.matrix_scalar_product(new_solution,new_solution),new_solution);
+     residual.add(-1.*kappa * (1-theta) * lam * offline_data.mass_matrix_unconstrained.matrix_scalar_product(new_solution,new_solution),new_solution);
     residual.add(-1.*kappa * theta * lam * offline_data.mass_matrix_unconstrained.matrix_scalar_product(old_solution,old_solution),old_solution);
     std::cout<<"residual l infinity norm = " << residual.linfty_norm()<<std::endl;
     std::cout<<"residual l2 norm = " << residual.l2_norm()<<std::endl;
