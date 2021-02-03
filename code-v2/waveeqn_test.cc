@@ -71,14 +71,16 @@ public:
     /* IC = A exp[-{((x-b)+cT)^2/2d^2}], initial_values1 = IC(0) */
    
     initial_values1 = [&](double r) {
-        return A_param*std::exp(- (r-b_param)*(r-b_param)/(2.* pow(d_param,2.));
+       // return A_param*std::exp(- (r-b_param)*(r-b_param)/(2.* pow(d_param,2.));
+       return std::exp(-10.*(r-5)*(r-5));
     };
 
     //Need to solve for u^2(0) = initial_values1 + kappa d/dT(IC)(0)
     //IC_T = d/dT(IC)(0)
 
     IC_T = [&](double r) {
-        return - c_param / pow(d_param, 2.) * (r-b_param) * initial_values1;
+       // return - c_param / pow(d_param, 2.) * (r-b_param) * initial_values1;
+       return 40 * (r-5)*initial_values1(r);
     };
 
     boundary_values = [&](double r, double t) {
@@ -590,7 +592,7 @@ void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double> &oldest_sol
 
   old_solution = oldest_solution;
   new_solution = old_solution;
- 
+  //old_solution = oldest_solution;
   //apply_boundary_values(offline_data, coefficients, new_t, new_solution);
   
   apply_boundary_values(offline_data, coefficients, new_t, new_solution, old_solution);
@@ -635,9 +637,8 @@ void TimeStep<dim>::step(Vector<double> &old_solution,Vector<double> &oldest_sol
       throw ExcMessage("non converged");
   }
 
-  old_solution = new_solution;
   oldest_solution = old_solution;
-
+  old_solution = new_solution;
 }
 
 
@@ -747,7 +748,7 @@ void TimeLoop<dim>::run()
     }
 
 //  Only run output every x steps
-    if((n > 1))// && (n % 100 == 0))
+    if((n > 1) && (n % 100 == 0))
     {
       /* output: */
       dealii::DataOut<dim> data_out;
